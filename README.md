@@ -31,12 +31,12 @@ Using the **GTFS (General Transit Feed Specification)** standard as the data sou
 ## 🖼 Example Outputs
 
 ### Travel-Time Reachability Map
-Interactive map showing reachable transit stops within time buckets from a selected origin, computed using GTFS schedules and network traversal.
+Interactive map showing reachable transit stops within time ranges from a selected origin, computed using a custom hybrid CSA algorithm.
 
 ![Reachability map](Examples/belgrade_stop_reachability_interactive_map.png)
 
 ### Temporal Service Analysis
-Distribution of trip start times for a weekday, used to validate GTFS schedules and identify peak-demand periods.
+Distribution of trip start times for a weekday, used to validate schedules and identify peak-demand periods.
 
 ![Trip histogram](Examples/prague_trip_histogram_monday.png)
 
