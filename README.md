@@ -33,12 +33,12 @@ Using the **GTFS (General Transit Feed Specification)** standard as the data sou
 ### Travel-Time Reachability Map
 Interactive map showing reachable transit stops within time buckets from a selected origin, computed using GTFS schedules and network traversal.
 
-![Reachability map](examples/belgrade_stop_reachability_interactive_map.png)
+![Reachability map](Examples/belgrade_stop_reachability_interactive_map.png)
 
 ### Temporal Service Analysis
 Distribution of trip start times for a weekday, used to validate GTFS schedules and identify peak-demand periods.
 
-![Trip histogram](examples/prague_trip_histogram_monday.png)
+![Trip histogram](Examples/prague_trip_histogram_monday.png)
 
 ## 🏗 Architecture
 
