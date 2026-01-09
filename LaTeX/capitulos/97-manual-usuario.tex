@@ -1,0 +1,383 @@
+
+\chapter{Manual de usuario} \label{appendix:usage}
+
+\section{Especificaciones} \label{user:specifications}
+
+Se recomienda al usuario contar con un equipo de las siguientes especificaciones, o mejores:
+
+\begin{itemize}
+    \item \textbf{CPU:} Intel i7 de octava generación, o su equivalente en AMD.
+    \item \textbf{RAM:} 16 GB, dado que el proceso de importación de datos carga mucha información en memoria.
+    \item \textbf{Disco duro:} 10 GB libres, en un SSD.
+    \item \textbf{Sistema operativo:} Cualquier distribución de Linux, dado que el código proporcionado está diseñado para funcionar con Docker.
+\end{itemize}
+
+Cabe destacar que, aunque no se garantiza, es posible que se pueda emplear el sistema en condiciones diferentes, como, por ejemplo, en Windows, o contando con una menor cantidad de RAM.
+
+\section{Dependencias} \label{user:dependencies}
+
+A nivel de software, es necesario contar con los programas indicados en el cuadro \ref{table:dependencias} instalados, y, como recomendación, en las versiones señaladas.
+
+Aunque se hace uso de varios sistemas gestores de bases de datos, no es necesario instalarlos de forma explícita, dado que los scripts proporcionados se encargan de lanzar contenedores Docker que los ejecutan directamente, descargando todo lo requerido.
+
+\begin{table}[ht]
+  \centering
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{0.55\textwidth}{Xr}
+    \toprule
+    \textbf{Nombre} & \textbf{Versión} \\
+    \midrule
+    Bash & $\texttt{5.2}$ \\
+    Coreutils & $\texttt{9.7}$ \\
+    Docker & $\texttt{28.1.1}$ \\
+    Git & $\texttt{2.49}$ \\
+    Python & $\texttt{3.13}$ \\
+    QGIS & $\texttt{3.42}$ \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Lista de dependencias software.}
+  \label{table:dependencias}
+\end{table}
+
+
+\section{Instalación} \label{user:install}
+
+Para llevar a cabo la instalación del sistema:
+
+\begin{enumerate}
+    \item Abrir el terminal y navegar hasta el directorio en que queramos instalar el sistema.
+    \item Clonar el repositorio de GitHub haciendo uso del comando:
+\begin{verbatim}
+$ git clone https://github.com/rodrada/TFG
+\end{verbatim}
+    \item Asegurarse de que las bibliotecas de Python están instaladas ejecutando, en el directorio raíz del proyecto:
+\begin{verbatim}
+$ python3 -m venv .venv
+$ source .venv/bin/activate
+$ pip install -r requirements.txt
+\end{verbatim}
+    Como resultado, el terminal debería mostrar el prefijo \verb|(.venv)|.
+    \item Descargar el dataset que queramos emplear, de webs como \href{https://mobilitydatabase.org}{Mobility Database}. Para esta guía, utilizaremos el de \href{https://mobilitydatabase.org/feeds/gtfs/mdb-1076}{Singapur}.
+    \item Descomprimir el dataset y colocarlo en su propio subdirectorio bajo el directorio Datasets/GTFS del proyecto.
+    \item Asegurar que el dataset sigue el formato esperado mediante el script process\_dataset.py en el directorio Scripts del proyecto. Por ejemplo:
+\begin{verbatim}
+$ ./process_dataset.py ../Datasets/GTFS/Singapore
+\end{verbatim}
+    \item Utilizando los scripts launch.sh en Scripts/Neo4J o Scripts/PostgreSQL, lanzar el sistema gestor de bases de datos que queramos utilizar.
+    \item Por último, ejecutar el script import.sh en el directorio Scripts del proyecto, indicando qué dataset queremos importar y en qué sistema gestor de bases de datos. Por ejemplo:
+\begin{verbatim}
+$ ./import.sh Singapore neo4j
+\end{verbatim}
+\end{enumerate}
+
+\section{Consultas}
+
+\subsection{Queries predefinidas}
+
+Durante el proceso de importación, se añaden múltiples consultas predefinidas que podemos lanzar de manera sencilla, tal y como se explicará en las próximas subsecciones. En el cuadro \ref{table:consultas_comunes} podemos ver las consultas disponibles en ambos sistemas, y, en el \ref{table:consultas_postgres}, las que solo se pueden ejecutar en PostgreSQL.
+
+% Queries common to both DBMS.
+\begin{table}[p]
+    \centering
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Nombre y argumentos} & \textbf{Descripción} \\
+        \hline
+        \makecell[lt]{
+            \code{active\_services(} \\
+            \quad \code{curr\_date: Date} \\
+            \code{)} \\
+        } &
+        Enumera los servicios de transporte activos en la fecha \code{curr\_date}. \\
+        \hline
+        \makecell[lt]{
+            \code{daily\_status(} \\
+            \quad \code{start\_date: Date} \\
+            \quad \code{end\_date: Date} \\
+            \code{)} \\
+        } &
+        Muestra la cantidad de trayectos, rutas y paradas activos en cada una de las fechas entre \code{start\_date} y \code{end\_date}. \\
+        \hline
+        \makecell[lt] {
+            \code{departure\_times(} \\
+            \quad \code{route\_id: String} \\
+            \quad \code{stop\_id: String} \\
+            \quad \code{curr\_date: Date} \\
+            \code{)}
+        } &
+        Determina los tiempos de salida para la ruta \code{route\_id}, desde la parada \code{stop\_id}, en la fecha \code{curr\_date}. \\
+        \hline
+        \makecell[lt]{
+            \code{headway\_stats(} \\
+            \quad \code{curr\_date: Date} \\
+            \code{)}
+        } &
+        Genera estadísticas de los tiempos de espera (percentil 5, mediana, percentil 95 y desviación típica) para todas las rutas en la fecha \code{curr\_date}. \\
+        \hline
+        \makecell[lt] {
+            \code{next\_departures(} \\
+            \quad \code{stop\_id: String} \\
+            \quad \code{curr\_date: Date} \\
+            \quad \code{curr\_time: Time} \\
+            \code{)} \\
+        } &
+        Encuentra las próximas salidas desde la parada \code{stop\_id}, partiendo de la fecha \code{curr\_date} y la hora \code{curr\_time}. \\
+        \hline
+        \makecell[lt]{
+            \code{overlapping\_segments()} \\
+        } &
+        Busca los segmentos (pares de paradas) de la red que son cubiertos por una mayor cantidad de rutas, lo que puede indicar planificación redundante. \\
+        \hline
+        \makecell[lt] {
+            \code{routes\_by\_relevance(} \\
+            \quad \code{curr\_date: Date} \\
+            \quad \code{curr\_time: Time} \\
+            \code{)} \\
+        } &
+        Dadas la fecha \code{curr\_date} y la hora \code{curr\_time}, halla las rutas más importantes en términos de trayectos activos y frecuencia entre estos. \\
+        \hline
+        \makecell[lt]{
+            \code{routes\_by\_speed()} \\
+        } &
+        Produce un ranking de las rutas, ordenadas por su velocidad media (considerando el promedio de todos sus trayectos). \\
+        \hline
+        \makecell[lt] {
+            \code{stops\_within\_distance(} \\
+            \quad \code{origin\_lat: Float} \\
+            \quad \code{origin\_lon: Float} \\
+            \quad \code{seek\_dist: Float} \\
+            \code{)}
+        } &
+        Determina las paradas que se encuentran a menos de \code{seek\_dist} metros del punto con latitud \code{origin\_lat} y longitud \code{origin\_lon}, ordenadas por distancia. \\
+        \hline
+        \makecell[lt]{
+            \code{top\_stops(} \\
+            \quad \code{curr\_date: Date} \\
+            \code{)} \\
+        } &
+        Encuentra las paradas más importantes en la fecha \code{curr\_date}, de acuerdo con el número de salidas. \\
+        \hline
+        \makecell[lt] {
+            \code{trip\_start\_time\_distribution(} \\
+            \quad \code{curr\_date: Date} \\
+            \quad \code{bucket\_size\_min: Integer} \\
+            \code{)}
+        } &
+        Genera un histograma que aglutina las fechas de inicio de los trayectos, en intervalos de \code{bucket\_size\_min} minutos, para la fecha \code{curr\_date}. \\
+        \hline    
+    \end{tabularx}
+    \caption{Consultas disponibles en ambos sistemas.}
+    \label{table:consultas_comunes}
+\end{table}
+
+
+% Postgres queries.
+\begin{table}[ht]
+    \centering
+    \begin{tabularx}{\textwidth}{|l|X|}
+        \hline
+        \textbf{Nombre y argumentos} & \textbf{Descripción} \\
+        \hline
+        \makecell[lt]{
+            \code{stop\_density\_heatmap(} \\
+            \quad \code{grid\_size\_meters: Integer} \\
+            \code{)} \\
+        } &
+        Divide el mapa en hexágonos de lado \code{grid\_size\_meters} y determina el número de paradas contenidas en cada uno de ellos. \\
+        \hline
+        \makecell[lt]{
+            \code{earliest\_arrivals(} \\
+            \quad \code{origin\_stop\_id: String} \\
+            \quad \code{departure\_date: Date} \\
+            \quad \code{departure\_time: Time} \\
+            \code{)} \\
+        } &
+        Considerando la parada con identificador \code{origin\_stop\_id}, la fecha \code{departure\_date} y la hora de salida \code{departure\_time}, calcula el instante de llegada más temprano al resto de paradas de la red. \\
+        \hline
+        \makecell[lt]{
+            \code{shortest\_path(} \\
+            \quad \code{origin\_stop\_id: String} \\
+            \quad \code{destination\_stop\_id: String} \\
+            \quad \code{departure\_date: Date} \\
+            \quad \code{departure\_time: Time} \\
+            \code{)} \\
+        } &
+        Determina el camino más corto (el que permite llegar antes) desde la parada con identificador \code{origin\_stop\_id} hasta la de identificador \code{destination\_stop\_id}, en la fecha \code{departure\_date} y con la hora de salida \code{departure\_time}. \\
+        \hline
+        \makecell[lt]{
+            \code{route\_straightness()} \\
+        } &
+        Para cada una de las rutas, determina su índice de rectitud, es decir, el ratio $km\_recorridos / km\_linea\_recta$, lo que puede sugerir ineficiencias (si es reducido) o planificación redundante (si es próximo a 1). \\
+        \hline
+    \end{tabularx}
+    \caption{Consultas exclusivas de PostgreSQL.}
+    \label{table:consultas_postgres}
+\end{table}
+
+\subsection{PostgreSQL}
+
+Una vez instalado el sistema, podemos empezar a realizar consultas sobre la información almacenada. En el caso de PostgreSQL, procederemos del siguiente modo:
+
+\begin{enumerate}
+    \item En el terminal, lanzar el cliente en línea de comandos, psql, utilizando el siguiente comando:
+    \begin{verbatim}$ docker exec -it postgres psql -U postgres -d gtfs\end{verbatim}
+    Mediante el mismo, se ejecuta una sesión interactiva de psql dentro del contenedor Docker, utilizando el usuario (-U) ``postgres'' y la base de datos (-d) ``gtfs''.
+    \item Escribir la consulta que queramos realizar o, en caso de que sea una de las predefinidas,  invocarla utilizando la siguiente línea:
+    \begin{verbatim}SELECT * FROM <nombre_consulta>(arg1 => valor1, ...);\end{verbatim}
+    También se puede omitir el nombre de los argumentos. Por ejemplo:
+    \begin{verbatim}SELECT * FROM stops_within_distance(1.28, 103.82, 500);\end{verbatim}
+\end{enumerate}
+
+\begin{figure}[ht]
+\centerline{\includegraphics[width=0.8\textwidth]{figuras/postgres_query.png}}
+\caption{Ejemplo de consulta en PostgreSQL.}
+\label{postgres_query}
+\end{figure}
+
+En la figura \ref{postgres_query}, podemos ver un ejemplo de una consulta lanzada en PostgreSQL y el resultado obtenido.
+
+\subsection{Neo4J}
+
+Neo4J ofrece una alternativa más amigable al usuario que la línea de comandos: una interfaz web, visible en la figura \ref{neo4j_webui}, que, por defecto, se lanza en el puerto 7474.
+
+\begin{figure}[ht]
+\centerline{\includegraphics[width=0.8\textwidth]{figuras/neo4j_webui.png}}
+\caption{Interfaz web de Neo4J.}
+\label{neo4j_webui}
+\end{figure}
+
+Para llevar a cabo consultas en Neo4J, se debe:
+
+\begin{enumerate}
+    \item Lanzar el navegador e introducir la IP de la interfaz web:
+    \begin{verbatim}127.0.0.1:7474\end{verbatim}
+    \item En la ventana de autenticación que aparece al acceder, pulsar en ``Connect'' \textbf{sin introducir credenciales}.
+    \item Abrir la sección ``Database Information'', correspondiente al primer icono en la barra lateral de la izquierda.
+    \item Bajo el texto ``Use database'', abrir el desplegable y reemplazar el valor por defecto, \verb|neo4j|, por \verb|gtfs|.
+    \item En el cuadro de texto superior, con el mensaje \verb|gtfs$| (véase la figura \ref{neo4j_webui}), introducir el texto de la consulta que queramos realizar. Para lanzar una consulta predefinida, debemos utilizar la siguiente sintaxis:
+\begin{verbatim}
+MATCH (cq: CypherQuery {name: '<nombre_consulta>'})
+CALL apoc.cypher.run(cq.statement, {arg1: valor1, ...})
+YIELD value
+RETURN value;
+\end{verbatim}
+    \item Pulsar en el triángulo azul a la derecha del cuadro para lanzar la consulta.
+    \item Una vez obtenidos los resultados, seleccionar a la izquierda el modo de presentación de estos: grafo, tabla o texto.
+\end{enumerate}
+
+
+\section{Visualización sobre mapa}
+
+\subsection{QGIS}
+
+Si estamos utilizando PostgreSQL como sistema gestor de bases de datos, podemos visualizar los resultados de nuestras consultas sobre un mapa haciendo uso de QGIS, como indica la figura \ref{qgis_visualization}. Para ello, es necesario:
+
+\begin{enumerate}
+    \item Ejecutar QGIS y esperar a que se inicie.
+    \item En el menú de la izquierda, hacer click derecho sobre ``PostgreSQL''.
+    \item Introducir los siguientes datos de conexión:
+    \begin{itemize}
+        \item Name: \verb|GTFS|
+        \item Host: \verb|127.0.0.1|
+        \item Port: \verb|5432|
+        \item Database: \verb|gtfs|
+        \item SSL mode: \verb|prefer|
+        \item Authentication: \verb|Basic|
+        \item User name: \verb|postgres| (marcar \verb|store|)
+        \item Password: \verb|12345678| (marcar \verb|store|)
+    \end{itemize}
+    \item Comprobar que los parámetros de conexión se han introducido correctamente pulsando en ``Test Connection'' y, a continuación guardar la conexión pulsando ``OK''.
+    \item En el menú de la aplicación, seleccionar $Web > QuickMapServices > Search QMS$.
+    \item Buscar, en el menú que se acaba de abrir a la derecha, un proveedor de mapas (se recomienda ``OpenStreetMap''), y hacer doble click en él.
+    \item Tras abrirse el mapa de mundo, hacer zoom sobre la ciudad o región asociada al dataset.
+    \item Hacer click derecho sobre la conexión que añadimos con anterioridad y pulsar ``Execute SQL...''
+    \item Introducir nuestra consulta SQL y lanzarla pulsando en ``Execute''.
+    \item Una vez aparezcan los resultados, pulsar en ``Load as a new layer'', abajo a la izquierda. \item Marcar la opción ``Geometry column'' y seleccionar en el desplegable la columna resultado que contenga la geometría que queremos visualizar (contiene un código alfanumérico de 50 caracteres).
+    \item Añadir la capa pulsando ``Load Layer'', y asegurarnos de que queda por encima de la capa de OpenStreetMap, en el apartado ``Layers''.
+    \item Para encontrar en el mapa los resultados que se han vuelto visibles, hacer click derecho en la capa del resultado, ``QueryLayer'', y pulsar ``Zoom to Layer(s)''.
+    \item Si se quiere conservar el mapa y los resultados de consultas, guardar el proyecto, ya sea desde el menú principal de la aplicación, o desde el pop-up que aparece al tratar de cerrarla.
+\end{enumerate}
+
+\begin{figure}[p]
+    \centerline{\includegraphics[width=0.9\textwidth]{figuras/qgis_visualization.png}}
+    \caption{Visualización de múltiples resultados en QGIS.}
+    \label{qgis_visualization}
+\end{figure}
+
+\subsection{Folium (Python)}
+
+Otra de las opciones para visualizar los resultados es generar gráficas o mapas interactivos, como el de la figura \ref{folium_visualization}, utilizando los scripts de Python proporcionados en el directorio \texttt{Scripts} del proyecto.
+
+Todos ellos proporcionan detalles sobre sus argumentos si los lanzamos con la opción \code{--help}. Por ejemplo, con \code{shortest\_path\_interactive\_map.py}:
+
+\begin{verbatim}
+options:
+  -h, --help            show this help message and exit
+  --origin-stop-id ORIGIN_STOP_ID
+                        The ID of the starting stop.
+  --destination-stop-id DESTINATION_STOP_ID
+                        The ID of the destination stop.
+  --date DATE           The departure date in YYYY-MM-DD format.
+  --time TIME           The departure time in HH:MI:SS format.
+  --output OUTPUT       Path to save the output map HTML file.
+\end{verbatim}
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figuras/folium_visualization}
+    \caption{Visualización de un análisis de alcanzabilidad en Folium.}
+    \label{folium_visualization}
+\end{figure}
+
+\section{Errores frecuentes} \label{user:troubleshooting}
+
+\subsection{No es posible conectar con el daemon de Docker}
+
+Este problema se caracteriza por el siguiente mensaje al tratar de lanzar alguno de los sistemas gestores de bases de datos:
+
+\begin{verbatim}
+docker: Cannot connect to the Docker daemon at
+unix:///var/run/docker.sock. Is the docker daemon running?
+\end{verbatim}
+
+Se nos indica que Docker ha sido instalado correctamente pero el servicio asociado no se ha lanzado. Para solucionarlo, basta con ejecutar el siguiente comando:
+    
+\begin{verbatim}
+$ sudo systemctl start docker
+\end{verbatim}
+
+\subsection{No se puede establecer comunicación con un contenedor Docker}
+
+El mensaje de error que aparece al intentar importar un conjunto de datos es el siguiente:
+
+\begin{verbatim}
+Error response from daemon: No such container: <postgres/neo4j>
+\end{verbatim}
+
+Al no haberse lanzado el contenedor, el script de importación es incapaz de encontrarlo. Para solucionarlo, desde la carpeta raíz del proyecto, ejecutamos el script launch.sh del sistema gestor de bases de datos correspondiente:
+
+\begin{verbatim}
+$ Scripts/<PostgreSQL/Neo4J>/launch.sh
+\end{verbatim}
+
+\subsection{Las consultas en Neo4J no producen resultados}
+
+Si al tratar de lanzar una consulta en la interfaz web de Neo4J no se nos muestra ningún nodo como resultado, pero tampoco aparece ningún mensaje de error, es posible que estemos utilizando la base de datos por defecto, \verb|neo4j|, en lugar de la que contiene los datos, llamada \verb|gtfs|.
+
+Para cambiar de base de datos, abrimos la sección ``Database Information'', correspondiente al primer icono en la barra lateral de la izquierda, y, bajo el texto ``Use database'', en el desplegable, elegimos \verb|gtfs|.
+
+\subsection{Los scripts en Python fallan al tratar de importar bibliotecas}
+
+En este caso, al tratar de lanzar un script de importación o generación de mapas interactivos, nos aparece un mensaje de error similar al siguiente (puede mencionar otra biblioteca, no necesariamente la de Neo4J):
+
+\begin{verbatim}
+ModuleNotFoundError: No module named 'neo4j'
+\end{verbatim}
+
+Como solución, debemos ejecutar los siguientes comandos para lanzar el entorno virtual de Python y obtener las dependencias:
+
+\begin{verbatim}
+$ python3 -m venv .venv
+$ source .venv/bin/activate
+$ pip install -r requirements.txt
+\end{verbatim}

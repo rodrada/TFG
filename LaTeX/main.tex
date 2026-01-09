@@ -1,0 +1,194 @@
+
+\documentclass[12pt,twoside,a4paper]{book}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage[dvips]{epsfig}
+\usepackage{amssymb}
+
+% Restore default bullet points
+\renewcommand{\labelitemi}{\textbullet}
+\renewcommand{\labelitemii}{\circ}
+\renewcommand{\labelitemiii}{\diamond}
+\renewcommand{\labelitemiv}{\cdot}
+
+% Do not force pages to be filled vertically.
+\raggedbottom
+
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{eurosym}
+\usepackage{float}
+\usepackage{latexsym}
+\usepackage{a4}
+\usepackage{listings}
+\usepackage{todonotes}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\newcommand{\code}[1]{\texttt{#1}}
+\usepackage{hyperref}
+\usepackage{makecell}
+\usepackage{dirtree}
+\usepackage[type={CC}, modifier={by-sa}, version={4.0}]{doclicense}
+\usepackage{booktabs}
+\usepackage{minted}
+
+\usepackage[HTML]{xcolor}
+\definecolor{codebg}{HTML}{FCFCFC}
+
+% Diagrams directly in the document.
+\usepackage{tikz}
+\usetikzlibrary{shapes.arrows, shapes.geometric, shapes.symbols, shapes.misc, arrows.meta, positioning, fit, backgrounds, calc, shadows, babel}
+
+\usepackage[minted]{tcolorbox}
+\newtcblisting{huggedminted}[2][]{%
+    listing engine=minted,
+    minted language=#2,
+    minted options={fontsize=\footnotesize, #1},
+    hbox,           % Hug contents.
+    colback=codebg,  % Background color
+    colframe=codebg, % Frame color
+    boxrule=0pt,    % No frame
+    left=2pt, right=2pt, top=2pt, bottom=2pt,
+    arc=0pt,
+    listing only    % Contains only the code
+}
+
+% Display "+" and "-" like regular characters.
+\setminted{ignorelexererrors=true}
+
+% Custom indexes.
+\usepackage{tocloft}
+
+\newcommand{\reqlist}{Índice de requisitos}
+\newlistof{requirements}{req}{\reqlist}
+
+% Adjust width for the "RF-XX" labels
+\setlength{\cftrequirementsnumwidth}{5em} 
+
+\newcounter{frcounter}
+\renewcommand{\thefrcounter}{%
+  \ifnum\value{frcounter}<10 0\fi\arabic{frcounter}%
+}
+\newcommand{\freq}[6]{%
+  \refstepcounter{frcounter}%
+  \addcontentsline{req}{requirements}{\protect\numberline{\textbf{RF-\thefrcounter}}#1}%
+  
+  \subsubsection*{RF-\thefrcounter: #1}
+  
+  % Create automatic label: "req:RF-XX"
+  \edef\currentreqlabel{req:RF-\thefrcounter}
+  \label{\currentreqlabel}
+
+  \textbf{Descripción:} #2
+
+  \par\medskip
+  \textbf{Prioridad:} #3
+
+  \par\medskip
+  \textbf{Entradas:} #4
+
+  \par\medskip
+  \textbf{Salidas:} #5
+
+  \par\medskip
+  \textbf{Notas:} #6
+
+  \par\bigskip
+}
+
+\newcounter{nfrcounter}
+\renewcommand{\thenfrcounter}{%
+  \ifnum\value{nfrcounter}<10 0\fi\arabic{nfrcounter}%
+}
+\newcommand{\nfreq}[4]{%
+  \refstepcounter{nfrcounter}%
+  \addcontentsline{req}{requirements}{\protect\numberline{\textbf{RNF-\thenfrcounter}}#1}%
+  
+  \subsubsection*{RNF-\thenfrcounter: #1}
+  
+  % Create automatic label: "req:RNF-XX"
+  \edef\currentreqlabel{req:RNF-\thenfrcounter}
+  \label{\currentreqlabel}
+
+  \textbf{Descripción:} #2
+
+  \par\medskip
+  \textbf{Prioridad:} #3
+
+  \par\medskip
+  \textbf{Criterio de verificación:} #4
+
+  \par\bigskip
+}
+
+\newcounter{ircounter}
+\renewcommand{\theircounter}{%
+  \ifnum\value{ircounter}<10 0\fi\arabic{ircounter}%
+}
+\newcommand{\ireq}[2]{%
+  \refstepcounter{ircounter}%
+  \addcontentsline{req}{requirements}{\protect\numberline{\textbf{RI-\theircounter}}#1}%
+  
+  \subsubsection*{RI-\theircounter: #1}
+  
+  % Create automatic label: "req:RI-XX"
+  \edef\currentreqlabel{req:RI-\theircounter}
+  \label{\currentreqlabel}
+
+  \textbf{Descripción:} #2
+
+  \par\bigskip
+}
+
+\begin{document}
+\include{capitulos/titulo}
+\cleardoublepage
+\include{capitulos/certificacion} % paxina de certificación (optativa)
+\cleardoublepage
+
+\setlength{\parskip}{6pt}
+\include{capitulos/resumen}
+
+\cleardoublepage
+\pagestyle{plain}
+\addto\captionsspanish{\def\contentsname{Memoria tipo B -- \'{I}ndice general }}
+\tableofcontents
+\listoffigures
+\listoftables
+\listofrequirements
+
+% Agora incluimos os capítulos. Cambiamos a numeración e as cabeceiras
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagestyle{headings}
+\include{capitulos/01-introduccion}
+\cleardoublepage
+\include{capitulos/02-requisitos}
+\cleardoublepage
+\include{capitulos/03-diseño}
+\cleardoublepage
+\include{capitulos/04-pruebas}
+\cleardoublepage
+\include{capitulos/05-comparativa}
+\cleardoublepage
+\include{capitulos/06-conclusiones}
+\cleardoublepage
+
+% Aquí empezan os apéndices
+\appendix
+\cleardoublepage
+\include{capitulos/96-manual-tecnico}
+\cleardoublepage
+\include{capitulos/97-manual-usuario}
+\cleardoublepage
+\include{capitulos/98-licencia}
+\cleardoublepage
+\include{capitulos/99-bibliografia}
+
+\end{document}

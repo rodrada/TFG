@@ -1,0 +1,301 @@
+
+\chapter{Pruebas} \label{chapter:tests}
+
+Una vez construido el sistema, se procede a evaluar su correctitud mediante la ejecución de un plan de pruebas, que sirve también de base para comparativas entre motores, ya en el capítulo \ref{chapter:comparison}.
+
+\section{Estrategia de pruebas}
+
+\subsection{Alcance}
+
+El plan de pruebas busca asegurar el correcto funcionamiento de los siguientes aspectos:
+
+\begin{itemize}
+    \item \textbf{Integración de componentes:} Conectividad e interoperabilidad entre los sistemas gestores de bases de datos y el módulo de control, en Python, a través de drivers. Su verificación se lleva a cabo de manera implícita al ejecutar las demás pruebas.
+    \item \textbf{Integridad de datos:} Preservación de la información contenida en los conjuntos de datos durante el proceso de importación, incluyendo también la integridad referencial y respetando los tipos de datos.
+    \item \textbf{Algoritmos de consulta:} Exactitud de los resultados devueltos por las consultas implementadas. Dado que se utilizan dos sistemas gestores de bases de datos diferentes, el objetivo principal es asegurar que los resultados proporcionados por ambos son iguales, lo que sirve de evidencia sobre su equivalencia semántica.
+\end{itemize}
+
+Cabe mencionar que este capítulo se centra de manera exclusiva en la \textbf{correctitud}, es decir, que el sistema funcione de la manera esperada.
+
+\subsection{Herramientas e infraestructura}
+
+La tecnología principal sobre la que se articula el plan de pruebas es \textbf{pytest}. Esta elección responde a su capacidad de llevar a cabo los siguientes aspectos:
+
+\begin{itemize}
+    \item Automatización de la ejecución, permitiendo lanzar todas las pruebas con un solo comando.
+    \item Reporte detallado de errores, indicando exactamente qué casos de prueba han fallado.
+    \item Creación de un entorno controlado que garantice la reproducibilidad de los resultados.
+    \item Gestión de elementos comunes a todas las pruebas, como las conexiones a ambas bases de datos, haciendo uso de \textit{fixtures}.
+\end{itemize}
+
+En cuanto a otras bibliotecas de Python, se emplean \textbf{psycopg} y \textbf{neo4j-driver} para las conexiones con las bases de datos, y \textbf{hypothesis} para las pruebas basadas en propiedades.
+
+Al igual que durante la operación habitual del sistema, las bases de datos se ejecutan como contenedores de \textbf{Docker}, lo que garantiza aislamiento del sistema operativo y de sus bibliotecas.
+
+\subsection{Conjuntos de datos}
+
+A fin de comprobar la robustez del sistema frente a diferentes estructuras de red, convenciones en cuanto a la nomenclatura, y volúmenes de datos, se ha elegido un corpus que engloba 10 sistemas de transporte en varios continentes, detallado en el cuadro \ref{test:datasets}.
+
+Llevar a cabo las pruebas utilizando estos conjuntos de datos permite asegurar que el sistema funciona correctamente bajo condiciones de internacionalización (codificación UTF-8 para caracteres cirílicos e ideogramas chinos) e independientemente de la topología de red (soportando desde redes de metro densas hasta líneas de autobús regionales).
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{@{}llc@{}}
+        \toprule
+        \textbf{Nombre} & \textbf{Tipo} & \textbf{Tamaño (.txt)} \\
+        \midrule
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-793}{Madrid (EMT)}} &
+        Urbano (bus) &
+        123 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-767}{Praga}} &
+        Regional mixto (bus, metro, tren) &
+        255 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-1924}{Hong Kong}} &
+        \makecell[lt]{
+            Urbano mixto (bus, ferry, funicular) \\
+            Codificación UTF-8 (caracteres chinos) \\
+            Alta densidad
+        } &
+        113 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-2012}{Bogotá (SIMUR)}} &
+        \makecell[lt]{
+            Urbano (bus) \\
+            Gran número de trayectos ($>$ 150.000)
+        } &
+        594 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-1076}{Singapur}} &
+        \makecell[lt]{
+            Urbano mixto (bus, metro) \\
+            Modelo basado en frecuencias \\
+            Alta densidad
+        } &
+        8 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-2821}{Galicia (Xunta)}} &
+        \makecell[lt]{
+            Regional (bus) \\
+            Contexto conocido \\
+            Gran número de rutas ($>$ 6.500) \\
+            Gran número de paradas ($>$ 25.000)
+        } &
+        498 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-2333}{Munich}} &
+        \makecell[lt]{
+            Urbano mixto (bus, tranvía)
+        } &
+        140 MB \\
+        \addlinespace
+        \mbox{\href{https://busmaps.com/en/russia/open-data-portal-moscow/moscow-official}{Moscú}} &
+        \makecell[lt]{
+            Regional (bus) \\
+            Codificación UTF-8 (caracteres cirílicos)
+        } &
+        196 MB \\
+        \addlinespace
+        \mbox{\href{https://www.mta.info/developers}{Nueva York (MTA)}} &
+        \makecell[lt]{
+            Urbano (metro) \\
+            Referencia en el sector
+        } &
+        49 MB \\
+        \addlinespace
+        \mbox{\href{https://mobilitydatabase.org/feeds/gtfs/mdb-1027}{Belgrado}} &
+        \makecell[lt]{
+            Urbano mixto (bus, tranvía) \\
+        } &
+        129 MB \\
+        \bottomrule
+    \end{tabular}
+    \caption{Conjuntos de datos utilizados para las pruebas.}
+    \label{test:datasets}
+\end{table}
+
+\subsection{Metodología}
+
+Dado el volumen de los conjuntos de datos elegidos, la estrategia de pruebas busca minimizar la necesidad de definir resultados esperados de manera manual, ya que resulta inabordable. En su lugar, se opta por los siguientes enfoques, complementarios entre sí:
+
+\begin{itemize}
+    \item \textbf{Validación cruzada:} Aprovechando la redundancia entre ambos sistemas gestores de bases de datos, PostgreSQL y Neo4J, se verifica que los resultados generados por estos coinciden entre sí, tanto para comprobar la \textit{integridad} de los datos como la \textit{consistencia} en la implementación de las consultas.
+    \item \textbf{Análisis de casos límite:} Se evalúa la \textit{robustez} del sistema ante valores de entrada atípicos o extremos, garantizando que no se producen errores al forzar la lógica de implementación de las consultas.
+    \item \textbf{Comprobación basada en propiedades:} Con el objetivo de asegurar la \textit{plausibilidad} de los resultados de las consultas, se definen propiedades matemáticas que estos han de cumplir, así como criterios de coherencia basados en el dominio del problema.
+\end{itemize}
+
+\section{Integridad de los datos}
+
+A la hora de comprobar que el proceso de importación se ha realizado con éxito, el enfoque clave es la validación cruzada entre ambos motores de bases de datos. Para llevarla a cabo:
+
+\begin{enumerate}
+    \item Se recupera la información que acaba de ser importada mediante consultas, con sus respectivos \texttt{JOIN} en el caso de PostgreSQL y \textit{pattern matching} en el de Neo4J.
+    \item Se ordenan los resultados ya en Python, para evitar problemas con las diferencias en el orden proporcionado por las BBDD a causa de la \textit{collation}.
+    \item Se realiza una comparación extensiva, que asegure tanto que el número de resultados es el mismo, como que son cualitativamente idénticos.
+\end{enumerate}
+
+Se puede ver un modelo de implementación de estas pruebas en la figura \ref{test:integrity_code}, y una muestra de ejecución, sobre el conjunto de datos de Galicia, en la figura \ref{test:integrity}.
+
+\begin{figure}[p]
+    \centering
+    \begin{huggedminted}{python}
+def test_area_data_consistency(pg_query_runner, neo4j_query_runner):
+    pg_data = pg_query_runner(
+        "SELECT * FROM area ORDER BY area_id;", ())
+    neo4j_data = neo4j_query_runner(
+        "MATCH (a:Area) RETURN a ORDER BY a.id;", {})
+    
+    pg_count, neo4j_count = len(pg_data), len(neo4j_data)
+
+    assert pg_count == neo4j_count
+
+    def to_canonical_tuple(row):
+        return (row.get('area_id') or row.get('id'),
+                row.get('area_name') or row.get('name'))
+
+    pg_tuples = [to_canonical_tuple(row) for row in pg_data]
+    neo4j_tuples = [to_canonical_tuple(row) for row in neo4j_data]
+
+    pg_tuples.sort()
+    neo4j_tuples.sort()
+
+    assert pg_tuples == neo4j_tuples
+    \end{huggedminted}
+    \caption{Muestra de código de las pruebas de importación (simplificada).}
+    \label{test:integrity_code}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figuras/test_import.png}
+    \caption{Ejecución de las pruebas de importación (\textit{dataset} de Galicia).}
+    \label{test:integrity}
+\end{figure}
+
+\section{Algoritmos de consulta}
+
+A diferencia de las pruebas de importación, para asegurar el correcto funcionamiento de las consultas, debemos elegir un amplio espectro de casos de prueba, que evalúen su desempeño tanto en \textbf{condiciones habituales} como en \textbf{situaciones atípicas}. Al mismo tiempo, es conveniente comprobar que se mantienen ciertos \textbf{invariantes} en los resultados.
+
+Los detalles de implementación se tratan en las siguientes subsecciones, y en la figura \ref{test:algorithms} se proporciona un ejemplo de ejecución.
+
+\subsection{Casos de prueba aleatorizados} \label{test:random_queries}
+
+Para simular consultas que puedan ser realizadas por un usuario final, se implementan casos de prueba generados de manera aleatoria. Sin embargo, estos no son puramente estocásticos, a fin de evitar lanzar numerosas consultas triviales, cuyos resultados siempre sean nulos:
+
+\begin{enumerate}
+    \item \textbf{Descubrimiento:} Se consulta la base de datos para determinar el rango de valores válidos, tales como el rango de fechas de servicio, o la \textit{bounding box} del conjunto de paradas.
+    \item \textbf{Selección:} En base a los rangos obtenidos en el paso anterior, se eligen argumentos válidos para crear un caso de prueba.
+    \item \textbf{Consulta y comprobación}: Se lanza el caso de prueba y se verifica que los resultados proporcionados por ambas bases de datos son idénticos.
+\end{enumerate}
+
+En cuanto al número de casos de prueba, para cada conjunto de datos, se han considerado 30 para la mayoría de consultas, y 10 para aquellas que requieren un mayor tiempo de ejecución.
+
+\subsection{Valores límite}
+
+Aunque, en la mayoría de situaciones, un usuario final no vaya a realizar consultas con valores que no tengan sentido en el dominio del problema, es importante tener en cuenta dichos casos límite para garantizar la robustez de los algoritmos usados. Algunos ejemplos de argumentos considerados son:
+
+\begin{itemize}
+    \item Fechas inmediatamente anteriores al comienzo del servicio o posteriores al fin de este.
+    \item Coordenadas de lugares aislados como los polos norte y sur.
+    \item Distancias de búsqueda nulas.
+    \item Paradas inexistentes.
+    \item Rutas inexistentes.
+    \item Horas del día tardías.
+    \item Intervalos temporales muy cortos.
+\end{itemize}
+
+Adicionalmente, la figura \ref{test:edge_cases_code} presenta un ejemplo de implementación de estas pruebas, incluyendo varias de las clases de argumentos listados.
+
+\begin{figure}[h]
+    \centering
+    \begin{huggedminted}{python}
+# Edge cases for stops_within_distance.
+def test_edge_cases(pg_query_runner, neo4j_query_runner, bounding_box):
+    # North Pole.
+    results = run_test_case(origin_lat=90.0, origin_lon=0.0,
+                            seek_dist=MAX_SEARCH_DISTANCE_METERS)
+    assert len(results) == 0
+
+    # South Pole.
+    results = run_test_case(origin_lat=-90.0, origin_lon=0.0,
+                            seek_dist=MAX_SEARCH_DISTANCE_METERS)
+    assert len(results) == 0
+
+    # Null search distance (multiple iterations).
+    for i in range(RANDOM_TEST_COUNT):
+        lat, lon = random_point_in_bbox(bounding_box)
+        results = run_test_case(origin_lat=lat, origin_lon=lon, seek_dist=0)
+        assert len(results) == 0
+
+    # Well outside the bounding box, with long range.
+    outside_lat = bounding_box['max_lat'] + 10.0
+    outside_lon = bounding_box['max_lon'] + 10.0
+    distance = 5000
+    results = run_test_case(origin_lat=outside_lat, origin_lon=outside_lon,
+                            seek_dist=distance)
+    assert len(results) == 0
+    \end{huggedminted}
+    \caption{Muestra de código de las pruebas de valores límite (simplificada).}
+    \label{test:edge_cases_code}
+\end{figure}
+
+\subsection{Invariantes}
+
+Por último, utilizando la biblioteca \textit{hypothesis}\cite{hypothesis}, se implementan pruebas que tienen como objetivo asegurar el cumplimiento de ciertas propiedades en los resultados de las consultas.
+
+A modo de ejemplo, los resultados de una consulta sobre un rango temporal han de estar contenidos en los resultados de otra consulta sobre otro rango temporal mayor, es decir:
+
+\[
+    \forall a, a', b, b' \in [d_{begin}, d_{end}],  a \le a' \le b' \le b \implies q(a', b') \subseteq q(a, b)
+\]
+
+La implementación de la prueba correspondiente puede verse en la figura \ref{test:invariants_code}.
+
+Asimismo, durante la ejecución de los casos de prueba aleatorizados, se introducen \textit{comprobaciones de plausibilidad}, como que el número de elementos en listas no es negativo, que los resultados se encuentran dentro del rango de búsqueda, o que estos están ordenados de la manera esperada.
+
+\begin{figure}[p]
+    \centering
+    \begin{huggedminted}{python}
+# Property: Subrange queries should return the same results as
+#           the full range query filtered to that subrange.
+@given(
+    sub_start=st.dates(
+        min_value=service_date_range['min_date'],
+        max_value=service_date_range['max_date']
+    ),
+    sub_end=st.dates(
+        min_value=service_date_range['min_date'],
+        max_value=service_date_range['max_date']
+    )
+)
+@settings(deadline=None)
+def test_pbt_subrange_consistency(full_pg, full_neo, sub_start, sub_end):
+    assume(sub_start <= sub_end)
+    
+    # Run subrange queries
+    sub_pg = pg_query_runner(SQL, (sub_start, sub_end))
+    sub_neo = neo4j_query_runner(CYPHER,
+              {'start_date': str(sub_start), 'end_date': str(sub_end)})
+
+    # Filter the full-range results to the subrange
+    filtered_pg = [r for r in full_pg
+                   if sub_start <= r['service_date'] <= sub_end]
+    filtered_neo = [r for r in full_neo
+                    if sub_start <= r['value']['service_date'] <= sub_end]
+
+    # Check if the property holds.
+    assert sub_pg == filtered_pg
+    assert sub_neo == filtered_neo
+    \end{huggedminted}
+    \caption{Muestra de código de las pruebas de invariantes (simplificada).}
+    \label{test:invariants_code}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figuras/test_algorithms.png}
+    \caption{Ejecución de las pruebas de consultas (\textit{dataset} de Galicia).}
+    \label{test:algorithms}
+\end{figure}

@@ -1,0 +1,58 @@
+
+\chapter{Conclusiones y posibles ampliaciones} \label{chapter:conclusion}
+
+Este capítulo final sintetiza los resultados obtenidos durante el desarrollo del proyecto, y propone líneas de investigación para futuras mejoras.
+
+\section{Hallazgos}
+
+Este trabajo ha permitido contrastar dos paradigmas de bases de datos diferentes, aplicados a un mismo dominio: la gestión y análisis de redes de transporte público.
+
+La hipótesis inicial sugería que, dada la naturaleza topológica de una red de transporte, que cuenta con nodos y conexiones, una base de datos orientada a grafos como Neo4J debería ofrecer un rendimiento superior. Sin embargo, los resultados empíricos obtenidos matizan esta premisa, dado que:
+
+\begin{enumerate}
+    \item PostgreSQL ha ofrecido un mejor rendimiento en tareas de ingesta de datos, particularmente a nivel de importación, siendo un orden de magnitud más rápido que Neo4J.
+    \item El tiempo de consulta varía en función de la naturaleza de esta, siendo Neo4J más rápido a la hora de ejecutar consultas que requieren atravesar múltiples niveles de relaciones desde un número reducido de nodos iniciales, mientras que PostgreSQL vence en consultas que requieren agregar cantidades masivas de datos.
+    \item PostgreSQL (y todas las bases de datos relacionales, en general) simplifica el proceso de modelado, al estar el estándar GTFS definido siguiendo el modelo relacional.
+    \item Neo4J permite expresar las consultas de manera más sencilla y breve, lo que facilita su mantenimiento y comprensión.
+    \item El soporte de bibliotecas, fundamental en este dominio, es excelente en PostgreSQL, y bastante más limitado en Neo4J, lo que ha impedido la implementación de ciertas consultas (véase \ref{conclusion:objectives}).
+\end{enumerate}
+
+En definitiva, Neo4J es un sistema sencillo de utilizar y flexible, pero que fuera de consultas con requisitos muy específicos, ofrece un rendimiento peor que PostgreSQL. Al mismo tiempo, y aunque una de las ventajas de Neo4J es la mejora en productividad que ofrece al desarrollador a la hora de escribir consultas, esta se ve opacada por el reducido soporte geoespacial de Neo4J Spatial, especialmente en comparación con PostGIS.
+
+\section{Grado de cumplimiento de los objetivos} \label{conclusion:objectives}
+
+A grandes rasgos, se considera que los objetivos principales del proyecto se han alcanzado de manera satisfactoria:
+
+\begin{itemize}
+    \item Desarrollo de un sistema capaz de importar y validar datos que siguen el estándar GTFS, abarcando desde redes de transporte locales hasta regionales.
+    \item Implementación de un catálogo de consultas predefinidas que el usuario puede lanzar proporcionando únicamente sus argumentos.
+    \item Visualización de los resultados tanto mediante integraciones con Python, utilizando Folium, como con herramientas GIS de escritorio como QGIS.
+    \item Realización de una comparativa de las ventajas que ofrece cada uno de los motores de base de datos en el contexto de este dominio.
+\end{itemize}
+
+Sin embargo, cabe mencionar que debido a ciertas limitaciones en el soporte de bibliotecas de Neo4J, no se han podido implementar algunas consultas, como \texttt{stop\_density\_heatmap}, que requiere la segmentación del mapa en regiones. Asimismo, dado que resulta imposible expresar un algoritmo imperativo en Cypher, no se ha podido implementar \texttt{earliest\_arrivals}, y sería necesario crear un plugin externo, en Java, para ello.
+
+\section{Posibles vías de mejora}
+
+\subsection{Soporte para GTFS Realtime}
+
+Una de las evoluciones naturales del sistema consistiría en añadir soporte para datos en tiempo real, siguiendo el estándar GTFS Realtime\cite{gtfs-rt} (GTFS-RT). Actualmente, el sistema considera una planificación estática, siguiendo horarios teóricos, lo que limita su utilidad en ciertos contextos, como, por ejemplo, frente a retrasos a causa de atascos o incidentes.
+
+Además, la integración de flujos de datos en vivo plantearía nuevos desafíos arquitectónicos, principalmente derivados de la alta frecuencia de escritura, o la actualización de los resultados proporcionados por algoritmos de enrutamiento.
+
+\subsection{Análisis de topología y resiliencia de la red}
+
+Aunque en este trabajo se han abordado ciertos aspectos del análisis basado en topología, como la identificación de paradas consecutivas servidas por un número elevado de rutas (\texttt{overlapping\_segments}), este análisis podría extenderse a otras áreas, como por ejemplo:
+
+\begin{itemize}
+    \item Detección de nodos críticos mediante algoritmos de centralidad, como \textit{Betweenness Centrality}\cite{betweenness}, para encontrar cuellos de botella.
+    \item Simulación de fallos en la red mediante la eliminación de nodos o aristas para evaluar cómo se degrada la conectividad y determinar la robustez ante incidentes.
+    \item Identificación de comunidades mediante algoritmos de \textit{clustering} para hallar zonas fuertemente conectadas entre sí pero aisladas del resto.
+\end{itemize}
+
+\subsection{Enrutamiento con restricciones multicriterio}
+
+Otra ampliación relevante sería la implementación de algoritmos de enrutamiento que consideren restricciones complejas por parte del usuario, más allá de minimizar el tiempo de viaje. El ejemplo más claro es la introducción de límites en la distancia recorrida a pie (llegar al destino caminando menos de X metros).
+
+Desde el punto de vista algorítmico, este cambio transformaría el problema en un \textit{Resource Constrained Shortest Path Problem} (RCSPP), que, de manera general, pertenece a la clase de complejidad NP-hard, por lo que sería necesario hacer uso de aproximaciones heurísticas que, potencialmente, producirían resultados subóptimos pero \textit{suficientemente buenos}.
+

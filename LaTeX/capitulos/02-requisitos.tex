@@ -1,0 +1,228 @@
+
+\chapter{Especificación de requisitos} \label{chapter:requirements}
+
+En este capítulo se proporciona una descripción detallada de los requisitos del sistema, tanto a nivel funcional como no funcional y de información.
+
+\section{Alcance}
+
+El sistema \textbf{permitirá}:
+\begin{itemize}
+    \item Cargar conjunto de datos que siga el formato GTFS, incluyendo sus apartados opcionales, pero solamente en formato CSV.
+    \item Ejecutar un conjunto predefinido de consultas relevantes sobre los datos cargados, así como consultas escritas por los propios usuarios.
+    \item Visualizar de forma básica la red así como los resultados de ciertas consultas espaciales.
+    \item Comprobar el tiempo de importación de los conjuntos de datos y de ejecución de las consultas.
+\end{itemize}
+
+El sistema \textbf{no permitirá}:
+\begin{itemize}
+    \item Cargar un conjunto de datos en formato GeoJSON.
+    \item Modificar los datos de manera interactiva una vez cargados.
+    \item Distinguir múltiples usuarios o roles.
+    \item Obtener el máximo rendimiento que pueda ofrecer el sistema gestor de bases de datos.
+\end{itemize}
+
+
+\section{Requisitos funcionales}
+
+% Import and validation.
+\freq
+    {Importación de datos}
+    {El sistema debe permitir importar un conjunto de datos que siga el estándar GTFS\cite{gtfs}, de acuerdo con su versión de enero de 2025, con todos sus archivos en formato CSV y sin campos faltantes.}
+    {Máxima.}
+    {Nombre del conjunto de datos a importar, ya ubicado en el directorio de datasets del sistema.}
+    {Mensaje de confirmación o error, informando al usuario del resultado.}
+    {Aunque no pueden faltar campos en los archivos, se admiten valores nulos.}
+
+\freq
+    {Validación de integridad y restricciones}
+    {El sistema debe asegurar que los datos importados cumplen con las restricciones definidas por el estándar GTFS, lo que incluye verificación de tipos, presencia de campos obligatorios, e integridad referencial entre las entidades.}
+    {Alta.}
+    {Conjunto de datos que está siendo importado.}
+    {En caso de error, mensaje que señale las restricciones no satisfechas por el conjunto de datos.}
+    {Este proceso no requiere interacción por parte del usuario, sino que se lleva a cabo de forma automática durante la importación.}
+    
+% Queries.
+\freq
+    {Servicios de transporte activos}
+    {El sistema debe ser capaz de determinar los servicios de transporte activos para una fecha dada.}
+    {Alta.}
+    {Fecha en la que realizar la búsqueda.}
+    {Lista de identificadores de servicios activos.}
+    {—}
+
+\freq
+    {Estadísticas diarias}
+    {El sistema debe ser capaz de calcular el número de trayectos, rutas y paradas activas en la red de transporte para un rango de fechas dado.}
+    {Media.}
+    {Fechas inicial y final del rango.}
+    {Lista de trayectos, rutas y paradas activas para cada uno de los días del rango.}
+    {—}
+
+\freq
+    {Horas de salida de trayectos}
+    {El sistema debe ser capaz de encontrar las horas de salida para todos los trayectos vinculados a una ruta, desde una parada concreta y en una fecha especificada.}
+    {Alta.}
+    {Identificadores de ruta y parada, fecha de consulta.}
+    {Lista de trayectos, junto a su destino, y horas de salida, ordenada temporalmente.}
+    {—}
+
+\freq
+    {Tiempos de espera en la red}
+    {El sistema debe ser capaz de calcular, para todas las rutas, los tiempos de espera mínimos, promedio y máximos, así como la desviación estándar, agregando estos a lo largo de cada una de las paradas, para una fecha concreta.}
+    {Media.}
+    {Fecha de consulta.}
+    {Lista de tiempos de espera mínimos, promedio y máximos, junto a su desviación estándar, para cada una de las rutas.}
+    {—}
+
+\freq
+    {Próximas salidas}
+    {El sistema debe ser capaz de determinar, para una parada concreta, y una fecha y hora dadas, los próximos trayectos que parten desde la misma, ordenados por tiempo de salida.}
+    {Alta.}
+    {Identificador de parada, fecha y hora de consulta.}
+    {Lista de próximos trayectos, con ruta, destino y hora de salida, ordenados por esta última.}
+    {—}
+
+\freq
+    {Segmentos con solapamiento}
+    {El sistema debe ser capaz de analizar qué pares de paradas consecutivos son cubiertos por un mayor número de rutas.}
+    {Media.}
+    {—}
+    {Lista de pares de paradas, número y nombre de rutas que los cubren, ordenada por el número de rutas de manera descendente.}
+    {El interés de esta consulta reside en que permite determinar planificación redundante en la red de transporte.}
+
+\freq
+    {Ranking de rutas por relevancia}
+    {El sistema debe ser capaz de calcular, dadas una fecha y hora, las rutas más importantes en base al número de trayectos activos y la frecuencia de estos.}
+    {Baja.}
+    {Fecha y hora de consulta.}
+    {Lista de rutas ordenada de manera descendente por número de trayectos y de manera ascendente por la frecuencia de los mismos.}
+    {—}
+
+\freq
+    {Ranking de rutas por velocidad}
+    {El sistema debe ser capaz de encontrar las rutas más rápidas de la red, considerando la agregación de la velocidad promedio de cada uno de sus trayectos.}
+    {Media.}
+    {—}
+    {Lista de rutas con velocidad promedio y número de trayectos agregados para el cálculo, ordenada de manera descendente por dicha velocidad.}
+    {—}
+
+\freq
+    {Paradas cercanas}
+    {El sistema debe ser capaz de hallar las paradas más cercanas a una ubicación proporcionada por el usuario, dada una distancia de búsqueda.}
+    {Alta.}
+    {Latitud y longitud de la localización y radio de búsqueda.}
+    {Lista de paradas próximas, junto a sus latitudes, longitudes y distancias respecto al punto dado, ordenada por estas últimas.}
+    {—}
+
+\freq
+    {Paradas más transitadas}
+    {El sistema debe ser capaz de determinar las paradas más importantes en la red de transportes para una fecha dada, de acuerdo con el número de trayectos que parten de ellas.}
+    {Baja.}
+    {Fecha de consulta.}
+    {Lista de paradas con el número y nombre de rutas que las atraviesan, el número de trayectos que parten de ellas y la hora de la primera y última salidas, ordenada por el número de trayectos de manera descendente.}
+    {—}
+
+\freq
+    {Histograma de comienzo de trayectos}
+    {El sistema debe ser capaz de generar, dada una longitud de intervalo y una fecha, un histograma que muestre cuántos trayectos comienzan en cada intervalo temporal, a lo largo del día.}
+    {Alta.}
+    {Longitud de intervalo en minutos y fecha de consulta.}
+    {Lista de intervalos en que se divide la jornada y número de trayectos que inician en cada uno de ellos, ordenada de manera temporal.}
+    {—}
+
+\freq
+    {Mapa de calor de paradas}
+    {El sistema debe ser capaz de dividir de forma geométrica la región sobre la que se encuentra la red de transportes y, para cada una de esas subdivisiones, determinar el número de paradas contenidas.}
+    {Baja.}
+    {Tamaño de las subdivisiones.}
+    {Lista de geometrías (cada una de ellas representando una subdivisión) y número de paradas que se encuentran en cada una.}
+    {La implementación de este requisito está supeditada al soporte proporcionado por las bibliotecas PostGIS y Neo4J Spatial. En ningún caso se implementará el algoritmo de segmentación de manera manual.}
+
+\freq
+    {Análisis de alcanzabilidad}
+    {El sistema debe ser capaz de encontrar, a partir de una parada inicial, la hora mínima de llegada para cada una de las otras paradas del sistema, considerando no solo los trayectos de la red de transporte, sino también los transbordos entre estaciones y la posibilidad de caminar entre paradas.}
+    {Alta.}
+    {Identificador de la parada inicial, fecha y hora de partida.}
+    {Lista de paradas de la red, hora mínima de llegada a cada una de ellas, parada previa en el viaje, y acción realizada desde la parada previa (trayecto, transbordo o caminar).}
+    {Dado que el resultado varía en función tanto de elementos dependientes del tiempo (trayectos) como independientes (transbordos, desplazamiento a pie), es probable que el soporte de bibliotecas no resulte suficiente y sea necesario implementar un algoritmo propio.}
+
+\freq
+    {Camino más corto}
+    {El sistema debe ser capaz de encontrar, a partir de una parada de partida, el camino que le permite llegar a otra de destino de la manera más rápida posible, considerando una fecha y hora de inicio concretas.}
+    {Alta.}
+    {Identificador de las paradas de partida y destino, fecha y hora de inicio.}
+    {Lista de paradas a recorrer, así como la hora de llegada a cada una de ellas y la acción tomada en la parada previa (trayecto, transbordo o caminar).}
+    {—}
+
+% Visualization.
+\freq
+    {Visualización espacial de resultados}
+    {El sistema debe permitir al usuario generar mapas que representen los resultados espaciales producidos por la base de datos (por ejemplo, un mapa de calor sobre la densidad de paradas en que, al colocar el ratón sobre una subdivisión del mapa, se muestre el número concreto).}
+    {Media.}
+    {Datos requeridos por la consulta cuyo resultado se quiera visualizar.}
+    {Mapa interactivo que muestre el resultado de la consulta.}
+    {—}
+    
+\freq
+    {Generación de gráficas}
+    {El sistema debe permitir al usuario, en aquellos casos en que la consulta sea de índole temporal, generar una representación visual no interactiva (por ejemplo, una gráfica de mancuerna para los tiempos de espera en cada ruta).}
+    {Alta.}
+    {Datos requeridos por la consulta cuyo resultado se quiera visualizar.}
+    {Gráfica que muestre el resultado de la consulta.}
+    {—}
+
+% Measurements.
+\freq
+    {Medición de rendimiento}
+    {El sistema debe permitir al usuario medir el tiempo de ejecución tanto del proceso de importación como de las consultas predefinidas.}
+    {Media.}
+    {Conjunto(s) de datos a importar para evaluar el rendimiento de la importación, o consulta(s) a ejecutar en caso contrario.}
+    {Lista de tiempos de ejecución para la acción realizada.}
+    {—}
+
+
+\section{Requisitos no funcionales}
+
+\nfreq
+    {Escalabilidad respecto al conjunto de datos}
+    {El sistema debe poder importar conjuntos de datos GTFS de hasta 500 MB de tamaño en texto plano, utilizando hardware no especializado (ordenadores personales, con 16 GB de RAM) sin incurrir en errores de desbordamiento de memoria (OOM).}
+    {Alta.}
+    {Importación de un conjunto de datos GTFS de aproximadamente 500 MB.}
+
+\nfreq
+    {Extensibilidad del catálogo de consultas}
+    {El sistema debe permitir añadir nuevas consultas predefinidas introduciendo únicamente el código SQL o Cypher de dichas consultas en los ficheros correspondientes, sin necesidad de refactorizar el código.}
+    {Alta.}
+    {Adición de una nueva consulta introduciendo únicamente su declaración (nombre y argumentos) y definición (algoritmo), sin modificar o borrar código previamente existente.}
+
+\nfreq
+    {Portabilidad de las visualizaciones}
+    {El sistema debe garantizar que las visualizaciones generadas utilizan formatos portables (PNG en el caso de las gráficas, HTML en el de los mapas interactivos).}
+    {Media.}
+    {Apertura de archivos generados en aplicaciones de escritorio estándar (visor de imágenes y navegador).}
+
+\nfreq
+    {Interoperabilidad con estándares geoespaciales (GIS)}
+    {El sistema debe almacenar la información geoespacial de acuerdo con los estándares definidos por el Open Geospatial Consortium, como, por ejemplo, utilizando los tipos WKB y WKT.}
+    {Alta.}
+    {Conexión desde una herramienta GIS externa como QGIS, realización de una consulta de prueba y procesamiento por parte de la herramienta de los datos devueltos por la BBDD.}
+
+\nfreq
+    {Interfaces de línea de comandos (CLI)}
+    {El sistema debe exponer su funcionalidad a través de herramientas (scripts) ejecutados en la línea de comandos, tanto para el proceso de importación como para la generación de visualizaciones, tomando como argumentos las entradas necesarias (nombre del dataset o argumentos de la consulta).}
+    {Media.}
+    {Ejecución en un terminal de los scripts de importación y producción de visualizaciones.}
+
+\section{Requisitos de información}
+
+\ireq
+    {Entidades del estándar GTFS}
+    {El sistema debe almacenar y gestionar toda la información definida en la especificación GTFS (Static), incluyendo, entre otros, agencias y servicios de transporte, paradas, rutas, trayectos, tarifas y datos de accesibilidad, preservando el componente semántico de dicha información, pero no necesariamente la representación.}
+
+\ireq
+    {Estructuras espaciales derivadas}
+    {El sistema debe generar y mantener representaciones enriquecidas de los datos originales para su análisis, y, en particular, objetos geométricos sobre la superficie terrestre (puntos asociados a la ubicación de las paradas, líneas que describan el trazado de cada trayecto, y polígonos que delimiten las zonas de tarificación consideradas por los servicios de transporte).}
+
+\ireq
+    {Métricas de rendimiento}
+    {El sistema debe almacenar los resultados cuantitativos de las pruebas de rendimiento, siendo estos fundamentalmente los tiempos de importación de los conjuntos de datos y de ejecución de las consultas.}

@@ -1,0 +1,763 @@
+
+\chapter{Diseño} \label{chapter:design}
+
+Una vez definido el sistema a construir, este capítulo aborda el diseño del mismo, haciendo uso de una aproximación \textit{top-down}, es decir, proporcionando en primer lugar una visión global de la arquitectura y profundizando progresivamente en los detalles de implementación.
+
+\section{Arquitectura del sistema}
+
+En términos generales, el sistema está diseñado siguiendo una \textbf{arquitectura modular} y desacoplada, donde un controlador orquesta el flujo de datos y el proceso de pruebas. Adicionalmente, y como se muestra en la figura \ref{design:architecture}, el sistema está compuesto por tres capas:
+
+\begin{enumerate}
+    \item \textbf{Control:} Incluye el ya mencionado controlador, que procesa los conjuntos de datos antes de su importación, coordina las transacciones en las bases de datos y gestiona la ejecución de las pruebas. Para la comunicación, utiliza \texttt{psycopg} y \texttt{neo4j-driver} sobre TCP/IP.
+    \item \textbf{Persistencia:} Compuesta por los motores de base de datos, PostgreSQL\cite{postgres} y Neo4J\cite{neo4j}, que se despliegan como contenedores Docker aislados, y operan de manera independiente entre sí.
+    \item \textbf{Presentación:} Abarca tanto la integración con herramientas externas para la visualización (QGIS), como los artefactos generados para su análisis, en forma de mapas interactivos o gráficas.
+\end{enumerate}
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[
+        % Define styles
+        font=\sffamily\footnotesize,
+        node distance=1.5cm and 2cm,
+        % Main component style
+        component/.style={
+            rectangle, 
+            draw=black!60, 
+            fill=white, 
+            very thick, 
+            rounded corners=3pt, 
+            minimum width=2.5cm, 
+            minimum height=1cm, 
+            align=center,
+            drop shadow
+        },
+        % Database style
+        database/.style={
+            cylinder, 
+            cylinder uses custom fill, 
+            cylinder body fill=gray!10, 
+            cylinder end fill=gray!30, 
+            shape border rotate=90, 
+            aspect=0.25, 
+            draw=black!60, 
+            thick, 
+            minimum width=1.5cm, 
+            minimum height=1.5cm,
+            align=center
+        },
+        % File/Artifact style
+        artifact/.style={
+            tape, 
+            tape bend top=none, 
+            draw=black!60, 
+            thick, 
+            fill=yellow!10, 
+            minimum width=2cm, 
+            minimum height=1.2cm, 
+            align=center
+        },
+        % Connection style
+        link/.style={
+            -{Latex[length=3mm]}, 
+            thick, 
+            draw=black!70
+        },
+        % Label style for arrows
+        arrowlabel/.style={
+            midway,
+            above,
+            text=black!70, 
+            font=\sffamily\tiny, 
+            inner sep=1.5pt
+        }
+    ]
+
+    % Nodes
+    % Central Controller (Python)
+    \node[component, fill=green!10] (python) {
+        \textbf{Controlador} \\
+        \textit{(Python 3.13)} \\
+        \texttt{pytest}, \texttt{pandas}, \texttt{folium}
+    };
+    % Inputs (Left)
+    \node[artifact, left=of python] (inputs) {
+        \textbf{Datasets GTFS} \\
+        \textit{(.txt / .csv)}
+    };
+    % Outputs (Right)
+    \node[artifact, right=of python, fill=orange!10] (outputs) {
+        \textbf{Resultados} \\
+        \textit{Mapas (HTML)} \\
+        \textit{Gráficas (PNG)} \\
+        \textit{Métricas (JSON)}
+    };
+
+    % Infrastructure Group (Bottom)
+    % We use a coordinate to help positioning
+    \coordinate[below=2.8cm of python] (infra_center);
+    % Neo4j Container
+    \node[database, left=0.5cm of infra_center, text width=1.5cm] (neo4j) {Neo4J};
+    % PostgreSQL Container
+    \node[database, right=0.5cm of infra_center, text width=1.5cm] (postgres) {Postgres};
+    % Docker Boundary Box
+    \begin{scope}[on background layer]
+        \node[
+            fit=(postgres) (neo4j), 
+            draw=blue!30, 
+            dashed, 
+            thick, 
+            fill=blue!5, 
+            rounded corners, 
+            inner sep=0.5cm,
+            label={[blue!50, anchor=north]south:\textbf{Docker (localhost)}}
+        ] (docker_env) {};
+    \end{scope}
+
+    % QGIS
+    \node[component, right=2cm of postgres, fill=cyan!10] (qgis) {
+        \textbf{Visor GIS} \\
+        \textit{(QGIS)}
+    };
+
+    % Connections
+    % Python -> Input
+    \draw[link] (python) -- node[arrowlabel] {Preprocesado} (inputs);
+
+    % Python -> Output
+    \draw[link] (python) -- node[arrowlabel] {Generación} (outputs);
+
+    % Python <-> Neo4J
+    \draw[link, <->] ([xshift=-0.5cm]python.south) -- node[arrowlabel, sloped] {\texttt{neo4j-driver}} (neo4j.north);
+
+    % Python <-> PostgreSQL
+    \draw[link, <->] ([xshift=0.5cm]python.south) -- node[arrowlabel, sloped] {\texttt{psycopg}} (postgres.north);
+
+    % Input -> Docker
+    \draw[link] (inputs.south) |- node[arrowlabel, near end] {Importación} (docker_env.west);
+
+    % Docker -> QGIS
+    \draw[link] (postgres.east) -- node[arrowlabel] {Visualización} (qgis.west);
+
+    \end{tikzpicture}
+    \caption{Diagrama de la arquitectura general del sistema.}
+    \label{design:architecture}
+\end{figure}
+
+\section{Infraestructura y despliegue}
+
+\subsection{Aislamiento y reproducibilidad}
+
+Para garantizar que los componentes de la capa de persistencia, es decir, los motores de base de datos, no interactúen entre sí, generando incompatibilidades, estos se virtualizan mediante contenedores Docker\cite{docker}. Además, de esta forma se logra la reproducibilidad e independencia del sistema operativo y bibliotecas subyacentes, al encapsular las dependencias de cada motor y sus extensiones geoespaciales.
+
+Las imágenes Docker seleccionadas son \texttt{pgrouting:17-3.5-main}, en el caso de PostgreSQL, que incluye tanto la extensión \texttt{postgis}, como \texttt{pgrouting}, y en el de Neo4J, \texttt{neo4j:5.19.0-enterprise}, en lugar de la versión Community, para poder hacer uso de, entre otros, restricciones de tipos y existencia de propiedades.
+
+No obstante, a diferencia de las arquitecturas de microservicios convencionales, no se considera necesario hacer uso de Docker Compose, optando por scripts de lanzamiento de cada base de datos de manera independiente, dado que los motores no necesitan comunicarse entre sí (\textit{shared-nothing architecture}), e introducir un fichero \texttt{docker-compose.yml} no aportaría ningún beneficio, y forzaría al usuario a lanzar ambos motores incluso aunque solo vaya a utilizar uno, desperdiciando recursos del sistema.
+
+\subsection{Conexiones}
+
+Una de las responsabilidades principales del controlador Python\cite{python} es gestionar el ciclo de vida de las conexiones, durante tanto el proceso de prueba como la explotación del sistema, mediante el uso de \textit{fixtures} proporcionadas por \texttt{pytest}.
+
+Para ello, se sigue el flujo descrito en la figura \ref{design:connections}, lo que permite garantizar al mismo tiempo que el sistema no desperdicia recursos abriendo y cerrando más conexiones de las necesarias y que, cuando termina la ejecución de consultas o \textit{statements}, los sockets son liberados correctamente, sin generar \textit{leaks}.
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[
+        font=\sffamily\footnotesize,
+        node distance=1.0cm,
+        process/.style={
+            rectangle, 
+            draw=black!70, 
+            thick, 
+            fill=white, 
+            rounded corners=3pt, 
+            minimum width=4.5cm, 
+            minimum height=1cm, 
+            align=center,
+            drop shadow
+        },
+        decision/.style={
+            diamond, 
+            draw=black!70, 
+            thick, 
+            fill=yellow!10, 
+            aspect=2, 
+            align=center,
+            inner sep=0pt,
+            minimum width=2.5cm,
+            drop shadow
+        },
+        state/.style={
+            rectangle, 
+            rounded corners=8pt,
+            draw=black!60, 
+            thick, 
+            fill=gray!10, 
+            minimum width=2.5cm, 
+            align=center,
+            font=\sffamily\scriptsize\itshape
+        },
+        arrow/.style={
+            -{Latex[length=3mm]}, 
+            thick, 
+            draw=black!70,
+            rounded corners=5pt
+        },
+        label_text/.style={
+            font=\sffamily\tiny\bfseries, 
+            text=black!70,
+            inner sep=2pt,
+            midway
+        }
+    ]
+
+    % Precondition
+    \node[state] (precondition) {Infraestructura Docker (en ejecución)};
+
+    % Step 1: Setup
+    \node[process, below=1cm of precondition, fill=green!10] (connect) {
+        \textbf{1. Establecimiento de conexión TCP/IP} \\
+        \textit{Drivers:} \texttt{psycopg}, \texttt{neo4j-driver}
+    };
+
+    % Step 2a: Execution
+    \node[process, below=1cm of connect, fill=blue!10] (execute) {
+        \textbf{2. Ejecución mediante \textit{Query Runners}} \\
+        Envío de consulta / statement
+    };
+
+    % Step 2b: Decision
+    \node[decision, below=1cm of execute] (decide) {
+        ¿Más\\operaciones?
+    };
+
+    % Step 3: Teardown
+    \node[process, below=1cm of decide, fill=red!10] (close) {
+        \textbf{3. Cierre de conexión} \\
+        Liberación de sockets
+    };
+
+    % Fixture scope
+    \begin{scope}[on background layer]
+        \node[
+            fit=(connect) (execute) (decide) (close), 
+            draw=black!40, 
+            dashed, 
+            thick, 
+            fill=gray!5, 
+            rounded corners=5pt,
+            inner xsep=2cm,
+            inner ysep=0.5cm,
+            label={[anchor=north]south:\textbf{Fixture}}
+        ] (scope) {};
+    \end{scope}
+
+    % Arrows
+    \draw[arrow] (precondition) -- (scope.north);
+    \draw[arrow] (connect) -- (execute);
+    \draw[arrow] (execute) -- (decide);
+    \draw[arrow] (decide.south) -- node[label_text, right=4pt] {No} (close.north);
+    \draw[arrow] (decide.east) -- ++(2.5,0) |- node[label_text, right=4pt, near start] {Sí} (execute.east);
+    
+    \end{tikzpicture}
+    \caption{Ciclo de vida de las conexiones del sistema.}
+    \label{design:connections}
+\end{figure}
+
+Cabe mencionar que el flujo presentado se aplica únicamente al controlador Python y, si se opta por utilizar un software GIS de escritorio, como QGIS, este se encarga de establecer y administrar la conexión con PostgreSQL, de forma independiente, y a partir ciertos parámetros proporcionados, como el \textit{endpoint} y las credenciales de acceso.
+
+\subsection{Requisitos}
+
+\subsubsection{Hardware}
+
+Para asegurar que las métricas de rendimiento del sistema reflejan las capacidades de los motores de bases de datos y no las limitaciones del hardware subyacente, se han establecido los siguientes requisitos mínimos:
+
+\begin{itemize}
+    \item \textbf{Procesador:} Intel i7 de octava generación, o su equivalente en AMD (arquitectura x86-64), con soporte para virtualización, necesaria para la ejecución de los contenedores Docker.
+    \item \textbf{RAM:} 16 GB, dado que tanto la importación como las consultas cargan una gran cantidad de datos en memoria, especialmente en Neo4J, al almacenar la topología de la red, y se busca evitar el \textit{swapping}.
+    \item \textbf{Disco duro:} Un disco de estado sólido (SSD) con al menos 10 GB libres, dado que el proceso de importación es intensivo en E/S, por lo que un disco duro mecánico (HDD) se convertiría en un cuello de botella.
+\end{itemize}
+
+Por otra parte, para la obtención de los resultados presentados en el capítulo \ref{chapter:comparison}, los requisitos previamente listados se materializan en un sistema con un procesador Intel i7 10750H, 32 GB de RAM y un SSD con interfaz NVMe.
+
+\subsubsection{Software}
+
+En cuanto al entorno software, las dependencias principales son:
+
+\begin{itemize}
+    \item \textbf{Sistema operativo:} Cualquier distribución de Linux, para poder ejecutar Docker de manera nativa.
+    \item \textbf{Python y bibliotecas:} Versión 3.13 del lenguaje, junto con las bibliotecas listadas en el fichero \texttt{requirements.txt} del directorio del proyecto: entre otras, \texttt{pytest}\cite{pytest} para la automatización de las pruebas, \texttt{folium}\cite{folium} para la generación de mapas interactivos y \texttt{pandas}\cite{pandas} para el preprocesado de los conjuntos de datos, así como los drivers de PostgreSQL y Neo4J.
+    \item \textbf{Visor GIS:} Cualquier visor GIS que soporte conexiones con PostgreSQL. Se recomienda QGIS\cite{qgis} dado que es el estándar de la industria.
+\end{itemize}
+
+\section{Principios y patrones de diseño}
+
+La construcción del sistema no se limita exclusivamente a la codificación, sino que también incorpora principios arquitectónicos y patrones de diseño, a fin de garantizar la modularidad, la integridad de los datos y también el mantenimiento de los componentes software.
+
+En este apartado, se presentan algunos de los principios y patrones aplicados, partiendo de la arquitectura y concretando progresivamente en aspectos del código.
+
+\subsection{Separación de responsabilidades}
+
+La definición del modelo de datos se encuentra desacoplada de la implementación de consultas, y estas, a su vez, de la orquestación del sistema. Gracias a ello, la modificación de alguno de los componentes no afecta al resto.
+
+\subsection{KISS \textit{(Keep it simple, stupid)}}
+
+Se opta por utilizar las bibliotecas \texttt{psycopg} y \texttt{neo4j-driver} de manera directa, en lugar de escoger un ORM pesado como SQLAlchemy, lo que reduce el consumo de recursos sin un impacto tangible en la funcionalidad.
+
+Por otra parte, dado que uno de los objetivos de este trabajo es llevar a cabo una comparativa de rendimiento, esto también garantiza la \textbf{transparencia} de las mediciones, asegurando que se observa el rendimiento ofrecido por los motores de base de datos y no el que proporciona el framework escogido.
+
+\subsection{DRY \textit{(Don't repeat yourself)}}
+
+En la implementación de las pruebas, el fichero \texttt{conftest.py} se encarga de gestionar los detalles comunes, como el flujo de ejecución de los casos de prueba, análogo para todos ellos, evitando la repetición de código y favoreciendo la mantenibilidad.
+
+\subsection{Defensa en profundidad}
+
+Para evitar que el sistema opere sobre datos semánticamente incorrectos, no solamente se preprocesan los \textit{datasets} y se definen las queries considerando valores atípicos, sino que también se lleva a cabo la \textbf{aplicación estricta del esquema}.
+
+Mediante restricciones nativas a los motores de base de datos, (\texttt{CHECK}, \texttt{NOT NULL}, \textit{triggers}, limitaciones de tipos), se verifica que los datos estén presentes si son imprescindibles, que se encuentren en los rangos de valores aceptados por el estándar GTFS, y que se almacenen en un formato estandarizado (por ejemplo, todos los colores son cadenas de 6 dígitos hexadecimales, en mayúsculas).
+
+De esta forma, se genera un \textbf{\textit{pipeline} de defensa en profundidad}, o \textit{pipeline} de validación, tal y como se muestra en la figura \ref{design:layered_defense}.
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[
+        node distance=1.5cm,
+        font=\sffamily\footnotesize,
+        % Styles
+        data/.style={
+            single arrow, 
+            draw=black!60, 
+            thick, 
+            fill=gray!10, 
+            minimum height=1.5cm, 
+            shape border rotate=0,
+            align=center,
+            drop shadow
+        },
+        barrier/.style={
+            rectangle, 
+            draw=black!60, 
+            very thick, 
+            rounded corners=4pt, 
+            minimum width=2.2cm, 
+            minimum height=2.5cm, 
+            align=center,
+            drop shadow,
+            font=\sffamily\scriptsize\bfseries
+        },
+        database/.style={
+            cylinder, 
+            cylinder uses custom fill, 
+            cylinder body fill=orange!10, 
+            cylinder end fill=orange!30, 
+            shape border rotate=90, 
+            aspect=0.25, 
+            draw=black!60, 
+            thick, 
+            minimum width=1.5cm, 
+            minimum height=1.5cm,
+            align=center,
+            drop shadow
+        },
+        reject/.style={
+            -{Latex}, 
+            thick, 
+            draw=red!70, 
+            dashed
+        },
+        label_reject/.style={
+            below,
+            align=center,
+            text=red!70, 
+            font=\tiny\itshape
+        }
+    ]
+
+    % Input Data
+    \node[data, fill=white] (input) {
+        Conjunto de datos
+    };
+
+    % Layer 1: Preprocessing
+    \node[barrier, right=0cm of input, fill=green!10] (layer1) {
+        CAPA 1 \\[.2cm]
+        Preprocesado\\
+        en Python \\
+        (\texttt{pandas})
+    };
+
+    % Layer 2: Database constraints
+    \node[barrier, right=0.8cm of layer1, fill=yellow!10] (layer2) {
+        CAPA 2 \\[.2cm]
+        Semántica en BBDD \\
+        (\texttt{CHECK}, \\
+        \texttt{NOT NULL}, \\
+        \texttt{TRIGGER})
+    };
+
+    % Layer 3: Correct implementation of queries
+    \node[barrier, right=0.8cm of layer2, fill=red!10] (layer3) {
+        CAPA 3 \\[.2cm]
+        Programación\\
+        defensiva \\
+        en queries
+    };
+
+    % Arrows
+    \draw[-{Latex}, thick] (layer1) -- (layer2);
+    \draw[-{Latex}, thick] (layer2) -- (layer3);
+
+    \draw[reject] (layer1.south) -- ++(0,-0.8) node[label_reject] {Campos faltantes};
+    \draw[reject] (layer2.south) -- ++(0,-0.8) node[label_reject] {
+        Violación semántica \\
+        o \\
+        tipos incorrectos
+    };
+    \draw[reject] (layer3.south) -- ++(0,-0.8) node[label_reject] {Resultados incoherentes};
+
+    \end{tikzpicture}
+    \caption{\textit{Pipeline} de defensa en profundidad.}
+    \label{design:layered_defense}
+\end{figure}
+
+\subsection{Inyección de dependencias}
+
+Todo el proceso de pruebas hace uso de \textit{fixtures}, de tal modo que los casos de prueba no crean los objetos que necesitan para su ejecución, sino que es el propio \texttt{pytest} el encargado de instanciarlos y pasarlos como argumentos.
+
+\subsection{Fachada}
+
+El controlador se encarga de encapsular la complejidad inherente a la gestión de conexiones en \texttt{database.py}, proporcionando al resto de scripts una interfaz simplificada para lanzar sus consultas, mediante los objetos \texttt{pg\_query\_runner} y \texttt{neo4j\_query\_runner}.
+
+\section{Datos}
+
+El diseño de la capa de persistencia se caracteriza por la dualidad de modelos. Aunque la fuente de datos es la misma (los ficheros CSV del estándar GTFS), la aproximación al almacenamiento difiere entre el motor relacional y el orientado a grafos.
+
+\subsection{Ciclo de vida de la información}
+
+A nivel de flujo, la información sigue un modelo lineal caracterizado por su simplicidad:
+
+\begin{enumerate}
+    \item \textbf{Preprocesado:} El script \texttt{process\_dataset.py} se encarga de limpiar el conjunto de datos, garantizando que no hay columnas faltantes (aunque se admiten valores nulos).
+    \item \textbf{Modelado e importación:} Bajo la orquestación de \texttt{import.py}, los motores de bases de datos generan el esquema, leen los ficheros CSV del conjunto de datos y almacenan la información del modo descrito en los siguientes subapartados.
+    \item \textbf{Enriquecimiento:} A continuación, tanto PostgreSQL como Neo4J enriquecen la información importada con datos de índole geoespacial, como puntos que representan la ubicación de las paradas o líneas que siguen el trazado de los trayectos.
+    \item \textbf{Recuperación:} Mediante los scripts de consulta o evaluación de rendimiento, ubicados en el directorio \texttt{Scripts}, se recupera la información de las bases de datos y se utiliza para producir resultados.
+    \item \textbf{Almacenamiento y visualización:} Los resultados generados son visualizados, en el caso de los mapas o las gráficas, o almacenados en ficheros JSON, en el caso de los tiempos de importación y ejecución.
+\end{enumerate}
+
+\subsection{Modelo relacional (PostgreSQL)}
+
+El modelado en PostgreSQL consiste en un \textit{mapeo} casi\footnote{Algunos elementos, como las claves primarias con valores potencialmente nulos, no se pueden implementar de forma directa en PostgreSQL, así que se han buscado alternativas: en ese caso, índices que garantizan unicidad.} inmediato (1:1) de las entidades definidas en el estándar GTFS. En la figura \ref{design:er_model} se puede apreciar una simplificación del modelo entidad-relación (MER) seguido, considerando las entidades básicas.
+
+A nivel de implementación, se utiliza un script por cada una de las tablas SQL, ubicados todos ellos en el directorio \texttt{Scripts/PostgreSQL/Import}. También, en lugar de almacenar los datos de tipos enumerados (por ejemplo, estatus de accesibilidad de paradas o direcciones de viaje) como valores enteros, de han generado tablas adicionales para cada uno de ellos.
+
+En lo relativo a los componentes opcionales del estándar GTFS, sus tablas se crean siempre, independientemente de que el conjunto de datos vaya a insertar datos en ellas o no.
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[
+        node distance=2.5cm,
+        entity/.style={
+            rectangle, 
+            draw=black, 
+            thick, 
+            fill=blue!5, 
+            minimum width=2.5cm, 
+            minimum height=1cm,
+            align=center,
+            font=\sffamily\small
+        },
+        relation/.style={
+            diamond, 
+            draw=black, 
+            thick, 
+            fill=gray!10, 
+            aspect=2, 
+            inner sep=1pt,
+            font=\sffamily\tiny
+        },
+        link/.style={
+            -, 
+            thick
+        }
+    ]
+
+    % Entities
+    \node[entity] (agency) {Agency};
+    \node[entity, right=of agency] (route) {Route};
+    \node[entity, below=of route] (trip) {Trip};
+    \node[entity, left=of trip] (service) {Service};
+    \node[entity, right=of trip] (shape) {Shape\\(LineString)};
+    \node[entity, below=of trip] (stoptime) {Stop Time};
+    \node[entity, right=of stoptime] (stop) {Stop\\(Point)};
+
+    % Relations
+    \draw[link] (agency) -- node[relation] {Opera} (route);
+    \draw[link] (route) -- node[relation] {Cuenta con} (trip);
+    \draw[link] (trip) -- node[relation] {Sigue} (shape);
+    \draw[link] (trip) -- node[relation] {Formado por} (stoptime);
+    \draw[link] (stop) -- node[relation] {Ubicado en} (stoptime);
+    \draw[link] (service) -- node[relation] {Tiene activos} (trip);
+
+    % Cardinalities
+    \node[anchor=south west, font=\tiny] at (agency.east) {1};
+    \node[anchor=south east, font=\tiny] at (route.west) {N};
+    
+    \node[anchor=north west, font=\tiny] at (route.south) {1};
+    \node[anchor=south west, font=\tiny] at (trip.north) {N};
+
+    \node[anchor=south west, font=\tiny] at (service.east) {1};
+    \node[anchor=south east, font=\tiny] at (trip.west) {N};
+
+    \node[anchor=south west, font=\tiny] at (trip.east) {1};
+    \node[anchor=south east, font=\tiny] at (shape.west) {1};
+
+    \node[anchor=north west, font=\tiny] at (trip.south) {1};
+    \node[anchor=south west, font=\tiny] at (stoptime.north) {N};
+
+    \node[anchor=south west, font=\tiny] at (stoptime.east) {N};
+    \node[anchor=south east, font=\tiny] at (stop.west) {1};
+
+    \end{tikzpicture}
+    \caption{Modelo entidad-relación (simplificado) seguido en PostgreSQL.}
+    \label{design:er_model}
+\end{figure}
+
+\subsection{Modelo orientado a grafos (Neo4J)}
+
+En Neo4J, el almacenamiento de la información abandona la estructura tabular para adoptar una topología de red. La transformación se lleva a cabo de la forma más intuitiva: cada clave foránea en el modelo original se transforma en una arista, es decir, una relación explícita, en el grafo. De esta forma, se obtiene una estructura como la representada en la figura \ref{design:meta_graph}, un meta-grafo simplificado.
+
+Al igual que en el caso de PostgreSQL, la semántica de los campos o propiedades se preserva mediante restricciones de valores, pero en este caso, en lugar de utilizar \texttt{CHECK} en la definición de una tabla, se emplean \textit{triggers} que comprueban los valores durante el proceso de importación.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=2.5cm,
+        node_style/.style={
+            circle, 
+            draw=black, 
+            thick, 
+            fill=orange!10, 
+            minimum size=1.3cm,
+            align=center,
+            font=\sffamily\footnotesize\bfseries
+        },
+        rel_style/.style={
+            -{Latex}, 
+            thick, 
+            draw=black!80
+        },
+        label_style/.style={
+            midway, 
+            sloped, 
+            above, 
+            font=\sffamily\tiny
+        }
+    ]
+
+    % Nodes
+    \node[node_style] (agency) {:Agency};
+    \node[node_style, right=of agency] (route) {:Route};
+    \node[node_style, below=of route] (trip) {:Trip};
+    \node[node_style, left=of trip] (service) {:Service};
+    \node[node_style, below=of service] (day) {:Day};
+    \node[node_style, right=of trip] (shape) {:Shape};
+    \node[node_style, below=of trip] (stoptime) {:StopTime};
+    \node[node_style, right=of stoptime] (stop) {:Stop};
+
+    % Relationships
+    \draw[rel_style] (route) -- node[label_style] {:OPERATED\_BY} (agency);
+    \draw[rel_style] (trip) -- node[label_style] {:FOLLOWS} (route);
+    \draw[rel_style] (trip) -- node[label_style] {:SCHEDULED\_BY} (service);
+    \draw[rel_style] (trip) -- node[label_style] {:HAS\_SHAPE} (shape);
+    \draw[rel_style] (stoptime) -- node[label_style] {:PART\_OF} (trip);
+    \draw[rel_style] (stoptime) -- node[label_style] {:LOCATED\_AT} (stop);
+    \draw[rel_style, bend right=45] (service) to node[label_style, above, rotate=180] {:STARTS\_ON} (day);
+    \draw[rel_style, bend left=45] (service) to node[label_style, below] {:ENDS\_ON} (day);
+
+    \end{tikzpicture}
+    \caption{Meta-grafo (simplificado) seguido en Neo4J.}
+    \label{design:meta_graph}
+\end{figure}
+
+\section{Algoritmos y consultas}
+
+El sistema implementa dos clases de lógica de procesamiento: mientras que la mayoría de consultas son declarativas, y su ejecución es planificada por los motores de base de datos, los algoritmos de alcanzabilidad y búsqueda de caminos más cortos son imperativos, y se implementan como procedimientos.
+
+A causa de ello, y dado que Neo4J no proporciona soporte nativo para código imperativo, dichas consultas no se han implementado en el motor. Sería necesario desarrollar un plugin en Java que interopere con Neo4J, pero esto se considera fuera del ámbito del proyecto.
+
+\subsection{Lógica declarativa}
+
+La amplia mayoría de las consultas predefinidas han sido implementadas de modo puramente declarativo, tanto en PostgreSQL como en Neo4J. En esta sección se presentan algunos de los detalles de implementación más destacables.
+
+\subsubsection{Procesamiento de secuencias}
+
+Una parte fundamental del análisis de datos de transporte requiere operar sobre secuencias ordenadas de datos. Algunos ejemplos de ello son el cálculo de duraciones en los trayectos, la determinación de tiempos de espera en las paradas, o la identificación de segmentos de rutas.
+
+Para satisfacer esta necesidad, se han utilizado dos patrones de consulta, uno por cada motor de base de datos: \textbf{funciones de ventana} en PostgreSQL y \textbf{procesamiento de colecciones} en Neo4J.
+
+En el primer caso, PostgreSQL permite evitar los costosos \textit{self-joins} mediante el uso de funciones de ventana, como \texttt{LEAD}, que permite acceder a valores posteriores en una secuencia ordenada. Además, también se puede acceder a los extremos de la ventana mediante \texttt{FIRST\_VALUE} y \texttt{LAST\_VALUE}. En la figura \ref{design:window_functions} se muestra un ejemplo de su uso para calcular las duraciones de los trayectos.
+
+\begin{figure}[ht]
+    \centering
+    \begin{huggedminted}{sql}
+SELECT DISTINCT
+    trip_id,
+    EXTRACT(
+        EPOCH FROM (
+            LAST_VALUE(arrival_time::interval) OVER trip_window -
+            FIRST_VALUE(departure_time::interval) OVER trip_window
+        )
+    ) AS duration_seconds
+FROM stop_time
+WINDOW trip_window AS (
+    PARTITION BY trip_id
+    ORDER BY stop_sequence
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+)
+    \end{huggedminted}
+    \caption{Ejemplo de funciones ventana en PostgreSQL.}
+    \label{design:window_functions}
+\end{figure}
+
+Por otro lado, en el caso de Neo4J, Cypher\cite{cypher} no dispone de un equivalente directo a las funciones de ventana, por lo que se opta por la materialización de secuencias en listas, mediante \texttt{collect}, y su procesamiento con funciones proporcionadas por la biblioteca APOC\cite{apoc}, o con extensiones de lista (\textit{list comprehensions}). En la figura \ref{design:collect} se muestra un ejemplo de su uso para calcular todos los tiempos de espera entre trayectos para cada par (ruta, parada).
+
+\begin{figure}[ht]
+    \centering
+    \begin{huggedminted}{cypher}
+MATCH (r:Route)<-[:FOLLOWS]-(t:Trip)-[:SCHEDULED_BY]->(:Service {id: s_id})
+MATCH (s:Stop)<-[:LOCATED_AT]-(stt:StopTime)-[:PART_OF]->(t)
+
+[...]
+
+WITH r, s, direction_id as direction_id, collect(departure_time) as dt
+WHERE size(dt) >= 2     // A single departure is not enough.
+
+WITH r, s, direction_id,
+     [i IN range(0, size(dt) - 2) | dt[i+1] - dt[i]] as rs_headways
+    \end{huggedminted}
+    \caption{Ejemplo de procesamiento de colecciones en Neo4J.}
+    \label{design:collect}
+\end{figure}
+
+\subsubsection{Agregación en conjuntos}
+
+Algunas consultas, como \texttt{daily\_status}, pueden ofrecer un rendimiento muy superior si agrupamos todos los días con los mismos servicios activos en un solo conjunto, dado que se eliminan los cálculos duplicados.
+
+En PostgreSQL, esto se logra mediante la creación de una tabla adicional, llamada \texttt{day\_service\_sets}, cuyas filas contienen tuplas (\textit{service\_dates}, \textit{service\_set}), donde el primer elemento es un conjunto de fechas con los mismos servicios activos, y el segundo, los identificadores de dichos servicios.
+
+Asimismo, para garantizar la eficiencia a la hora de consultar los datos de esta tabla, se crean \textbf{indices GIN}, utilizados junto a los operadores \texttt{\&\&} y \texttt{<@} en la implementación de las consultas.
+
+\subsubsection{Optimización espacial}
+
+Varias de las consultas predefinidas hacen uso de datos espaciales. Por ejemplo, en \texttt{stops\_within\_distance}, es necesario determinar puntos geométricamente cercanos.
+
+El enfoque \textit{naïve} consiste en comparar la distancia con todo el resto de puntos, pero esto resulta ser muy costoso en términos de rendimiento.
+
+Afortunadamente, tanto PostGIS\cite{postgis} como Neo4J-Spatial\cite{neo4j-spatial} proporcionan mecanismos para acelerar estas consultas, como los \textbf{índices GiST}, de los que se ha hecho uso, creándolos inmediatamente después de llevar a cabo la importación de los datos.
+
+\subsubsection{Metaconsultas}
+
+Una de las mayores limitaciones de Neo4J es su incapacidad de definir funciones procedimientos mediante Cypher, requiriendo hacer uso de plugins externos escritos en Java.
+
+Sin embargo, y dado que se busca proporcionar un catálogo de consultas, este problema se ha abordado utilizando un patrón de \textbf{metaconsultas}. Gracias a la biblioteca \texttt{APOC}, podemos ejecutar código Cypher dinámico, con el procedimiento \texttt{apoc.cypher.run}, lo que a su vez nos permite almacenar el texto de las consultas como una propiedad en un nodo etiquetado como \textit{CypherQuery}, recuperarlo posteriormente, y lanzar dicha consulta.
+
+En la figura \ref{design:metaqueries} se puede apreciar la invocación de una de las consultas predefinidas a través de esta solución.
+
+\begin{figure}[h]
+    \centering
+    \begin{huggedminted}{cypher}
+MATCH (cq: CypherQuery {name: 'headway_stats'})
+CALL apoc.cypher.run(cq.statement, {curr_date: '2025-12-25'})
+YIELD value
+RETURN value;
+    \end{huggedminted}
+    \caption{Código de invocación de una consulta predefinida en Neo4J.}
+    \label{design:metaqueries}
+\end{figure}
+
+\subsection{Enrutamiento híbrido}
+
+El componente más complejo del sistema a nivel algorítmico es la función de cálculo de alcanzabilidad, denominada \texttt{earliest\_arrivals}, que se utiliza también para hallar el camino más corto entre dos paradas.
+
+Dada la naturaleza del problema, que requiere considerar tanto factores dependientes del tiempo (los trayectos) como independientes (los transbordos y los desplazamientos a pie), no es posible hacer uso ni del algoritmo de Dijkstra\cite{dijkstra}, ni del \textit{Connection Scan Algorithm}\cite{csa} (CSA). Asimismo, tampoco se puede optar por un algoritmo proporcionado por \texttt{pgrouting} o Neo4J, ya que no soportan factores dependientes del tiempo.
+
+Por tanto, como parte del proyecto, se desarrolla e implementa un algoritmo híbrido, que toma el componente fundamental de CSA, iterando sobre las conexiones entre nodos ordenadas temporalmente por hora de salida, y añade una fase de relajación local, similar al algoritmo de Dijkstra.
+
+\subsubsection{Fundamento teórico}
+
+El algoritmo CSA original mantiene un vector de estado $E$, donde $E[p]_t$ representa la hora mínima de llegada a la parada $p$ en el instante $t$. Durante la ejecución del algoritmo, este vector se actualiza a medida que avanza el tiempo. Dado que el coste de desplazamiento nunca es negativo, se puede asegurar que:
+\[
+    \forall p, t, \enspace E[p]_t \leq t \implies \nexists t' > t: E[p]_{t'} < E[p]_t \qquad \text{(Optimalidad global)}
+\]
+En la variante híbrida, al confirmar un tiempo de llegada globalmente óptimo $t$, a una parada $p$, se inyectan conexiones de coste estático y tiempo de salida $t$ (representando caminar y cada uno de los posibles transbordos), y se procesan inmediatamente para encontrar tiempos de llegada a los vecinos de $p$ potencialmente mejores a los almacenados en el vector de estado $E$.
+
+Por otra parte, como hemos mencionado antes, CSA proporciona resultados óptimos únicamente si garantizamos que $E[p]_t$ representa la hora mínima de llegada a la parada $p$ en el instante $t$. Dado que las relajaciones de los nodos pueden mejorar el tiempo de llegada a alguno de sus vecinos, es \textbf{imprescindible} que dichas relajaciones se produzcan en cuanto se confirme la optimalidad global de un camino.
+
+\subsubsection{Implementación}
+
+En la figura \ref{design:modified_csa} se muestra una implementación simplificada del algoritmo en PL/pgSQL.
+
+\begin{figure}[p]
+    \centering
+    \begin{huggedminted}{postgresql}
+-- Initialize data structures.
+-- Array of results that is progressively filled.
+SELECT ... INTO results FROM "stop" s;
+
+-- Priority queue of stops, sorted by earliest arrival time.
+CREATE TEMP TABLE pqueue (...) ON COMMIT DROP;
+INSERT INTO pqueue SELECT ... FROM "stop" s;
+
+-- Lists of neighbors and transfers for each stop.
+neighbors := (SELECT ...); transfers := (SELECT ...);
+
+-- Loop through chronologically sorted connections.
+FOR conn IN
+    SELECT *
+    FROM connections c
+    ORDER BY departure_time ASC
+LOOP
+    -- Iterate over arrival times confirmed as optimal.
+    IF last_scanned_departure_time < conn.departure_time THEN
+        FOR conf_stop IN
+            -- Remove the stops from the queue after processing them.
+            DELETE FROM pqueue pq
+            WHERE pq.arrival_time <= conn.departure_time
+            RETURNING *
+        LOOP
+            -- Iterate over neighbors.
+            FOREACH nei IN ARRAY neighbors[conf_stop.stop_idx].val
+            LOOP
+                -- Calculate arrival time at the neighbor stop.
+                new_arrival := ...
+
+                -- Update arrival time if earlier.
+                IF new_arrival < results[nei].earliest_arrival THEN
+                    results[nei] = ...;
+                    UPDATE pqueue SET ... WHERE ...;
+                END IF;
+            END LOOP;
+
+            -- Iterate over transfers.
+            FOREACH transfer IN ARRAY transfers[conf_stop.stop_idx].val
+            LOOP
+                -- Analogous to neighbor handling.
+            END LOOP;
+        END LOOP;
+    END IF;
+
+    -- Process the next regular connection (trip).
+    -- We check if it's reachable from its departure stop.
+    IF results[departure_stop].earliest_arrival <= conn.departure_time THEN
+        -- Analogous to the neighbor handling.
+    END IF;
+END LOOP;
+    \end{huggedminted}
+    \caption{Implementación simplificada del algoritmo CSA híbrido.}
+    \label{design:modified_csa}
+\end{figure}
+
+
+
+
+
+

@@ -1,0 +1,324 @@
+{
+    "mdb-1": {
+        "name": "Casco Bay Lines",
+        "id": "mdb-1-202504100017",
+        "success": true,
+        "countries": [
+            "US"
+        ],
+        "official": null,
+        "bounding_box": {
+            "minimum_latitude": 43.6554627,
+            "maximum_latitude": 43.7163196,
+            "minimum_longitude": -70.248374,
+            "maximum_longitude": -70.1099246
+        },
+        "postgres_import_time": 1.497910976409912,
+        "neo4j_import_time": 8.815962553024292,
+        "validation_report": {
+            "features": [
+                "Bike Allowed",
+                "Fares V1",
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes",
+                "Stops Wheelchair Accessibility",
+                "Trips Wheelchair Accessibility"
+            ],
+            "total_error": 378,
+            "total_warning": 8,
+            "total_info": 0,
+            "unique_error_count": 1,
+            "unique_warning_count": 3,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-100": {
+        "name": "Anaheim Resort Transportation (ART)",
+        "id": "mdb-100-202511070107",
+        "success": true,
+        "countries": [
+            "US"
+        ],
+        "official": true,
+        "bounding_box": {
+            "minimum_latitude": 33.7799756540457,
+            "maximum_latitude": 33.8553728204877,
+            "minimum_longitude": -117.92822275,
+            "maximum_longitude": -117.840508056942
+        },
+        "postgres_import_time": 2.0493292808532715,
+        "neo4j_import_time": 12.492427349090576,
+        "validation_report": {
+            "features": [
+                "Bike Allowed",
+                "Continuous Stops",
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes",
+                "Stops Wheelchair Accessibility",
+                "Trips Wheelchair Accessibility"
+            ],
+            "total_error": 0,
+            "total_warning": 163,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 7,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1000": {
+        "name": "Komunikacja Miejska Przemy\u015bl",
+        "id": "mdb-1000-202410170011",
+        "success": false,
+        "cause": "Command '['python', PosixPath('/home/dani/College/2024-2025/TFG/Scripts/import.py'), 'tmp9ltfoisb', 'postgres']' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Bike Allowed",
+                "Headsigns",
+                "Trips Wheelchair Accessibility"
+            ],
+            "total_error": 5250,
+            "total_warning": 726,
+            "total_info": 0,
+            "unique_error_count": 4,
+            "unique_warning_count": 5,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1003": {
+        "name": "TRAM Barcelona (Tranv\u00eda Metropolitano Barcelona)",
+        "id": "mdb-1003-202511080043",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/calendar_dates.py Tests/Import/stops.py Tests/Import/routes.py Tests/Import/agency.py Tests/Import/trips.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Location Types",
+                "Route Colors",
+                "Shapes"
+            ],
+            "total_error": 0,
+            "total_warning": 3,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 3,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1004": {
+        "name": "TRAM Barcelona Bes\u00f3s (Tranv\u00eda Metropolitano Barcelona)",
+        "id": "mdb-1004-202511080102",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/calendar_dates.py Tests/Import/stops.py Tests/Import/routes.py Tests/Import/agency.py Tests/Import/trips.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Location Types",
+                "Route Colors",
+                "Shapes"
+            ],
+            "total_error": 0,
+            "total_warning": 6,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 4,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1010": {
+        "name": "Gmina Zaklad Komunalny (GZK Bystry)",
+        "id": "mdb-1010-202511080045",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/calendar_dates.py Tests/Import/stops.py Tests/Import/feed_info.py Tests/Import/routes.py Tests/Import/stop_times.py Tests/Import/agency.py Tests/Import/trips.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Feed Information"
+            ],
+            "total_error": 0,
+            "total_warning": 4,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 3,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1011": {
+        "name": "Koleje Mazowieckie (KM)",
+        "id": "mdb-1011-202511070036",
+        "success": false,
+        "cause": "Command '['python', PosixPath('/home/dani/College/2024-2025/TFG/Scripts/import.py'), 'tmpv4u828ov', 'neo4j']' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Attributions",
+                "Feed Information",
+                "Headsigns",
+                "Route Colors",
+                "Shapes",
+                "Stops Wheelchair Accessibility",
+                "Transfers"
+            ],
+            "total_error": 0,
+            "total_warning": 3,
+            "total_info": 2,
+            "unique_error_count": 0,
+            "unique_warning_count": 2,
+            "unique_info_count": 1
+        }
+    },
+    "mdb-1012": {
+        "name": "Miejskie Przedsi\u0119biorstwo Komunikacyjne w Lomzy (MPK ZB w \u0141om\u017cy)",
+        "id": "mdb-1012-202511070033",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/*.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Feed Information",
+                "Route Colors"
+            ],
+            "total_error": 0,
+            "total_warning": 3,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 2,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1017": {
+        "name": "Metro de M\u00e1laga",
+        "id": "mdb-1017-202510300025",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/calendar_dates.py Tests/Import/shapes.py Tests/Import/stops.py Tests/Import/feed_info.py Tests/Import/routes.py Tests/Import/agency.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes"
+            ],
+            "total_error": 0,
+            "total_warning": 1,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 1,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-1018": {
+        "name": "Monkey Forest Ubud Shuttle",
+        "id": "mdb-1018-202406071553",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/shapes.py Tests/Import/stops.py Tests/Import/feed_info.py Tests/Import/routes.py Tests/Import/stop_times.py Tests/Import/agency.py Tests/Import/calendar~.py Tests/Import/trips.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes"
+            ],
+            "total_error": 0,
+            "total_warning": 2528,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 6,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-102": {
+        "name": "Norwalk Transit System (NTS)",
+        "id": "mdb-102-202402080118",
+        "success": false,
+        "cause": "Command '['python', PosixPath('/home/dani/College/2024-2025/TFG/Scripts/import.py'), 'tmp1u23cx57', 'postgres']' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Continuous Stops",
+                "Fare Products",
+                "Fare Transfers",
+                "Fares V1",
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes",
+                "Stops Wheelchair Accessibility",
+                "Transfers"
+            ],
+            "total_error": 94,
+            "total_warning": 40,
+            "total_info": 363,
+            "unique_error_count": 5,
+            "unique_warning_count": 4,
+            "unique_info_count": 2
+        }
+    },
+    "mdb-1023": {
+        "name": "MapaNica Estel\u00ed",
+        "id": "mdb-1023-202402080115",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/fare_rules.py Tests/Import/shapes.py Tests/Import/stops.py Tests/Import/feed_info.py Tests/Import/routes.py Tests/Import/agency.py Tests/Import/calendar~.py Tests/Import/fare_attributes.py Tests/Import/trips.py >> test_results.txt' returned non-zero exit status 1.",
+        "validation_report": {
+            "features": [
+                "Fares V1",
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes"
+            ],
+            "total_error": 0,
+            "total_warning": 93460,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 7,
+            "unique_info_count": 0
+        }
+    },
+    "mdb-103": {
+        "name": "El Monte Transit",
+        "id": "mdb-103-202403040057",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/frequencies.py Tests/Import/fare_products.py Tests/Import/calendar_dates.py Tests/Import/runcut.py Tests/Import/booking_rules.py Tests/Import/directions.py Tests/Import/fare_rules.py Tests/Import/timetable_stop_order.py Tests/Import/shapes.py Tests/Import/stops.py Tests/Import/feed_info.py Tests/Import/timetables.py Tests/Import/routes.py Tests/Import/agency.py Tests/Import/areas.py Tests/Import/calendar_attributes.py Tests/Import/linked_datasets.py Tests/Import/stop_attributes.py Tests/Import/fare_leg_rules.py Tests/Import/farezone_attributes.py Tests/Import/location_groups.py Tests/Import/transfers.py Tests/Import/calendar~.py Tests/Import/fare_attributes.py Tests/Import/trips.py >> test_results.txt' returned non-zero exit status 4.",
+        "validation_report": {
+            "features": [
+                "Continuous Stops",
+                "Fare Products",
+                "Fares V1",
+                "Feed Information",
+                "Headsigns",
+                "Location Types",
+                "Route Colors",
+                "Shapes",
+                "Stops Wheelchair Accessibility"
+            ],
+            "total_error": 0,
+            "total_warning": 0,
+            "total_info": 173,
+            "unique_error_count": 0,
+            "unique_warning_count": 0,
+            "unique_info_count": 2
+        }
+    },
+    "mdb-1031": {
+        "name": "Trentino Trasporti Esercizio (TTE)",
+        "id": "mdb-1031-202508290104",
+        "success": false,
+        "cause": "Command 'pytest -vv Tests/Import/calendar_dates.py Tests/Import/stopslevel.py Tests/Import/stops.py Tests/Import/feed_info.py Tests/Import/routes.py Tests/Import/agency.py Tests/Import/transfers.py Tests/Import/calendar~.py >> test_results.txt' returned non-zero exit status 4.",
+        "validation_report": {
+            "features": [
+                "Feed Information",
+                "Headsigns",
+                "Transfers"
+            ],
+            "total_error": 0,
+            "total_warning": 2,
+            "total_info": 1,
+            "unique_error_count": 0,
+            "unique_warning_count": 2,
+            "unique_info_count": 1
+        }
+    }
+}

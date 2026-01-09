@@ -1,0 +1,213 @@
+
+\chapter{Evaluación comparativa} \label{chapter:comparison}
+
+Una vez llevado a cabo el proceso de pruebas, y garantizado el correcto funcionamiento del sistema, este capítulo aborda las diferencias entre las implementaciones objeto-relacional (PostgreSQL) y orientada a grafos (Neo4J).
+
+El análisis se centra en tres dimensiones: rendimiento (tiempos de ejecución del proceso de importación y de las consultas), facilidad de uso (modelado y expresión de consultas) y soporte de bibliotecas.
+
+\section{Rendimiento}
+
+Durante el proceso de pruebas, se llevan a cabo mediciones de los tiempos de ejecución, utilizadas en esta comparativa, para todos los conjuntos de datos descritos en la figura \ref{test:datasets}. En el caso de las consultas, se han medido sus tiempos de ejecución en los casos de prueba aleatorizados (sección \ref{test:random_queries}).
+
+
+
+\subsection{Tiempo de importación (input)}
+
+El proceso de ingesta de datos muestra las mayores diferencias en términos de rendimiento, como se puede comprobar en la figura \ref{comparison:import_times}. En general, PostgreSQL es \textbf{un orden de magnitud} más rápido que Neo4J, siendo el \textit{speedup} alcanzado de casi 13x.
+
+A este respecto, conviene mencionar que los procesos de importación en ambos sistemas gestores de bases de datos son fundamentalmente diferentes: mientras que PostgreSQL copia los datos directamente de los ficheros .csv, y a continuación comprueba la integridad referencial y que los datos sean válidos en el dominio, Neo4J también ha de construir la topología de la red, lo que implica determinar los nodos origen y destino y almacenar la relación entre ellos.
+
+Por otra parte, cabe mencionar que Neo4J no proporciona soporte\footnote{Existe una herramienta externa, neo4j-admin, que permite cargar ficheros .csv directamente, pero estos deben ser adaptados a un formato específico. Es posible que el tiempo de importación se pueda reducir de esta manera, pero ello complica el procesamiento de datos.} para copiar directamente datos desde un archivo .csv lo que obliga a leer las líneas de manera secuencial, agruparlas en conjuntos de miles de líneas (para evitar desbordamientos de memoria), y crear los nodos correspondientes.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{figuras/import_times.png}
+    \caption{Tiempos de importación en PostgreSQL y Neo4J.}
+    \label{comparison:import_times}
+\end{figure}
+
+\subsection{Tiempo de consulta (output)} \label{comparison:query_section}
+
+En el ámbito de la recuperación y análisis de datos, las diferencias de rendimiento son menores, y, además, dependen de la consulta realizada, como se puede apreciar en la figura \ref{comparison:query_times}. A causa de ello, no tiene sentido considerar el speedup global, dado que no hay un sistema que rinda mejor de manera clara.
+
+Resulta interesante destacar que Neo4J alcanza un mejor rendimiento en aquellas consultas que requieren atravesar múltiples niveles de relaciones desde un número reducido de nodos iniciales, siendo ejemplos \texttt{routes\_by\_speed}, que calcula la velocidad media de una ruta considerando el promedio de sus trayectos, y \texttt{next\_departures}, que determina las próximas salidas desde una parada, lo que implica recorrer la topología para examinar todos los trayectos que parten de ella.
+
+A su vez, PostgreSQL proporciona menores tiempos de ejecución en consultas que involucran cantidades masivas de datos, como \texttt{overlapping\_segments}, que necesita considerar cada uno de los tiempos de llegada de cada trayecto, gracias a que realiza un único \texttt{JOIN} secuencial entre las tablas, y no millones de accesos aleatorios a memoria.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\linewidth]{figuras/query_times.png}
+    \caption{Tiempos de consulta en PostgreSQL y Neo4J.}
+    \label{comparison:query_times}
+\end{figure}
+
+
+
+\section{Modelado y expresión}
+
+En ocasiones, resulta preferible potenciar la productividad de los desarrolladores incluso en detrimento del rendimiento que el sistema final pueda ofrecer. Por ello, otro de los aspectos a considerar en esta comparativa es cómo de sencillo resulta tanto modelar la información del sistema como expresar las consultas.
+
+En cuanto al primer aspecto, y dado que la amplia mayoría de la información que debe almacenar la base de datos viene dada por el estándar GTFS, PostgreSQL permite un modelado más rápido y sencillo, dado que los campos en la \href{https://gtfs.org/documentation/schedule/reference/}{especificación} están definidos siguiendo el paradigma de las bases de datos relacionales.
+
+Como muestra la figura \ref{comparison:modeling}, PostgreSQL permite almacenar de manera directa la información tal y como se define en dicha especificación, mientras que Neo4J requiere adaptar el modelo y decidir, por ejemplo, si transformar cada clave foránea de la especificación en una relación entre nodos, e incluso en el caso de proceder de ese modo por simplicidad, la ausencia de valores por defecto obliga a introducir lógica condicional.
+
+\begin{figure}[ht]
+    \centering
+    \begin{minipage}[t]{0.49\linewidth}
+        \vspace{0px}
+        \begin{huggedminted}[fontsize=\scriptsize]{sql}
+CREATE TABLE trip (
+    route_id TEXT NOT NULL
+        REFERENCES route(route_id),
+    service_id TEXT NOT NULL,
+    trip_id TEXT PRIMARY KEY,
+    trip_headsign TEXT,
+    trip_short_name TEXT,
+    direction_id INTEGER
+        REFERENCES travel_direction(id),
+    block_id TEXT,
+    shape_id TEXT,
+    wheelchair_accessible INTEGER
+        DEFAULT 0
+        REFERENCES wheelchair_status(id),
+    bikes_allowed INTEGER
+        DEFAULT 0
+        REFERENCES bicycle_status(id)
+);
+        \end{huggedminted}
+    \end{minipage}%
+    \begin{minipage}[t]{0.49\linewidth}
+        \vspace{0px}
+        \begin{huggedminted}[fontsize=\scriptsize]{cypher}
+MATCH (r: Route { id: row.route_id })
+MATCH (s: Service { id: row.service_id })
+WITH row, r, s
+CREATE (t: Trip {
+    id: row.trip_id,
+    headsign: row.trip_headsign,
+    short_name: row.trip_short_name
+})
+CREATE (t)-[fol: FOLLOWS]->(r)
+CREATE (t)-[sch: SCHEDULED_BY]->(s)
+CREATE (t)-[hws: HAS_WHEELCHAIR_STATUS]->(ws)
+CREATE (t)-[hbs: HAS_BICYCLE_STATUS]->(bs)
+WITH row, t
+CALL apoc.do.when(
+    row.direction_id IS NOT NULL,
+    'CREATE (t)-[htd: HAS_TRAVEL_DIR]->(td)
+    RETURN row, t',
+    'RETURN row, t',
+    { row: row, t: t }
+) YIELD value
+WITH value.row as row, value.t as t
+CALL apoc.do.when(
+    row.block_id IS NOT NULL,
+    'CREATE (t)-[itb: IN_TRIP_BLOCK]->(tb)
+    RETURN row, t',
+    'RETURN row, t',
+    { row: row, t: t }
+) YIELD value
+        \end{huggedminted}
+    \end{minipage}
+    \caption{Comparativa de modelado entre PostgreSQL (izq.) y Neo4J (der.).}
+    \label{comparison:modeling}
+\end{figure}
+
+Sin embargo, Neo4J ofrece una sintaxis que se adecúa mejor a la expresión de múltiples consultas, como es el caso de \texttt{overlapping\_segments} (figura \ref{comparison:querying_neo4j}). Si comparamos esta implementación con la de PostgreSQL (figura \ref{comparison:querying_postgres}), vemos que Neo4J requiere menos código y este resulta más fácil de entender, dado que su lenguaje está específicamente diseñado para aplicar múltiples transformaciones consecutivas a los datos (\textit{pipelining}).
+
+\begin{figure}[p]
+    \centering
+    \begin{huggedminted}{sql}
+WITH trip_segments AS (
+    SELECT
+        trip_id,
+        stop_id AS from_stop_id,
+        LEAD(stop_id, 1) OVER
+            (PARTITION BY trip_id ORDER BY stop_sequence) AS to_stop_id
+    FROM stop_time
+),
+segment_routes AS (
+    SELECT DISTINCT
+        ts.from_stop_id,
+        ts.to_stop_id,
+        t.route_id
+    FROM trip_segments AS ts
+        JOIN trip AS t ON ts.trip_id = t.trip_id
+    WHERE ts.to_stop_id IS NOT NULL
+)
+SELECT
+    s1.stop_name AS from_stop,
+    s2.stop_name AS to_stop,
+    COUNT(sr.route_id) AS route_count,
+    array_agg(r.route_short_name ORDER BY r.route_short_name) AS routes
+FROM segment_routes AS sr
+    JOIN stop AS s1 ON sr.from_stop_id = s1.stop_id
+    JOIN stop AS s2 ON sr.to_stop_id = s2.stop_id
+    JOIN route AS r ON sr.route_id = r.route_id
+GROUP BY sr.from_stop_id, sr.to_stop_id, s1.stop_name, s2.stop_name
+ORDER BY route_count DESC, from_stop, to_stop;
+    \end{huggedminted}
+    \caption{Código de \texttt{overlapping\_segments} en PostgreSQL.}
+    \label{comparison:querying_postgres}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \begin{huggedminted}{cypher}
+MATCH (s:Stop)<-[:LOCATED_AT]-(st:StopTime)-[:PART_OF]->(t:Trip)
+WITH t, s, st
+ORDER BY st.stop_sequence
+
+WITH t, apoc.coll.pairsMin(collect(s)) as stop_sequences
+MATCH (t:Trip)-[:FOLLOWS]->(r:Route)
+UNWIND stop_sequences as stop_pair
+WITH DISTINCT r, stop_pair[0] as from_stop, stop_pair[1] as to_stop
+
+WITH from_stop, to_stop, apoc.coll.sort(collect(r.short_name)) AS routes
+ORDER BY size(routes) DESC, from_stop.name, to_stop.name
+RETURN from_stop.name AS from_stop,
+       to_stop.name AS to_stop,
+       size(routes) AS route_count,
+       routes
+    \end{huggedminted}
+    \caption{Código de \texttt{overlapping\_segments} en Neo4J.}
+    \label{comparison:querying_neo4j}
+\end{figure}
+
+\clearpage % Force query examples to be shown before the next section
+
+
+
+\section{Soporte de bibliotecas}
+
+Otro de los aspectos clave a considerar a nivel de productividad del programador es el soporte de bibliotecas, dado que estas simplifican en gran medida la implementación de consultas complejas.
+
+En el caso de PostgreSQL, su extensión PostGIS es un estándar en la industria y ofrece una gran cantidad de funcionalidades, desde las más básicas, como la creación de puntos y líneas, hasta otras más avanzadas como el cálculo de elementos geométricos, como la envoltura cóncava y convexa (\textit{concave/convex hull}) y la generación de diagramas de Voronoi, que permiten derivar áreas de servicio a partir de un conjunto de paradas, o la segmentación de mapas en regiones hexagonales para generar mapas de calor.
+
+En cambio, Neo4J Spatial es una biblioteca más simple y con funcionalidades muy restringidas, ofreciendo, en el contexto de una red de transportes, poco más que creación de puntos y líneas, y cálculo de distancias. Precisamente a causa de ello, se considera inviable la implementación de ciertas consultas, como \texttt{stop\_density\_heatmap}, en Cypher, y no se lleva a cabo.
+
+
+
+\section{Resultados}
+
+A modo de conclusión del capítulo, el cuadro \ref{comparison:results} resume los puntos fuertes y débiles identificados en cada uno de los motores de base de datos.
+
+\vspace{1em}
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{@{}llp{8.5cm}@{}}
+        \toprule
+        \textbf{Dimensión} & \textbf{Vencedor} & \textbf{Observaciones} \\
+        \midrule
+        \textbf{Importación} & PostgreSQL & Alrededor de un orden de magnitud más rápido. \\
+        \textbf{Consulta} & — & PostgreSQL rinde mejor en agregación de cantidades masivas de datos, Neo4J en travesía desde un número limitado de nodos iniciales. \\
+        \textbf{Modelado} & PostgreSQL & GTFS se define siguiendo el modelo relacional. \\
+        \textbf{Expresividad} & Neo4J & Cypher resulta más simple y fácil de entender. \\
+        \textbf{Bibliotecas} & PostgreSQL & PostGIS soporta más algoritmos geométricos. \\
+        \bottomrule
+    \end{tabular}
+    \caption{Resumen comparativo: PostgreSQL frente a Neo4J.}
+    \label{comparison:results}
+\end{table}

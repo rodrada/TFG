@@ -1,0 +1,129 @@
+
+\chapter{Manual técnico} \label{appendix:development}
+
+\section{Código fuente}
+
+Todo el código fuente del proyecto se encuentra disponible en el \href{https://github.com/rodrada/TFG}{repositorio de GitHub} asociado.
+\todo{Add PDFs/PostScript documents with source code.}
+
+El proyecto se compone mayormente de tres partes: scripts en Python (para adaptar los datasets, lanzar el proceso de importación, generar gráficas y mapas con los resultados de las consultas, y ejecutar pruebas), código SQL (para generar las tablas en PostgreSQL, cargar datos y crear las consultas predefinidas), y código Cypher (con el mismo objetivo que el SQL, pero en Neo4J).
+
+\section{Requisitos, dependencias e instalación}
+
+Los requisitos principales del sistema y las dependencias se encuentran descritos en las secciones \ref{user:specifications} y \ref{user:dependencies} del manual de usuario. A mayores de lo necesario para instalar y ejecutar el software, se recomienda contar con un editor de texto o entorno de desarrollo con soporte para Python, SQL y Cypher, como Visual Studio Code.
+
+La instalación, incluyendo el proceso de clonar el repositorio de GitHub,  descargar las bibliotecas de Python necesarias e importar un dataset, se trata en el apartado \ref{user:install} del manual de usuario. Dado que el código está formado únicamente por scripts y no necesita compilación, el proceso de instalación para un desarrollador y un usuario es el mismo.
+
+\clearpage
+
+\section{Estructura del proyecto}
+
+Los directorios del proyecto se disponen de la siguiente manera:
+
+\vspace{0.5em}
+
+\dirtree{%
+.1 TFG.
+.2 Datasets.
+.3 GTFS \DTcomment{Conjuntos de datos, cada uno en un subdirectorio}.
+.2 Examples \DTcomment{Imágenes y mapas interactivos (HTML) de muestra}.
+.2 Scripts \DTcomment{Scripts para importación y visualización}.
+.3 Neo4J.
+.4 Import \DTcomment{Carga de datos}.
+.5 calendar.cypher.
+.5 routes.cypher.
+.5 stops.cypher.
+.5 ....
+.4 launch.sh \DTcomment{Lanzamiento de Neo4J sobre Docker}.
+.4 queries.cypher \DTcomment{Definición de consultas}.
+.3 PostgreSQL.
+.4 Import \DTcomment{Carga de datos}.
+.5 calendar.sql.
+.5 routes.sql.
+.5 stops.sql.
+.5 ....
+.4 launch.sh \DTcomment{Lanzamiento de PostgreSQL sobre Docker}.
+.4 queries.sql \DTcomment{Definición de consultas}.
+.3 database.py \DTcomment{Conexiones a las BBDD desde Python}.
+.3 departure\_sign\_animation.py.
+.3 headway\_stats\_graph.py.
+.3 import.py \DTcomment{Script de importación para el usuario}.
+.3 process\_dataset.py \DTcomment{Adaptación de datasets}.
+.3 route\_speed\_interactive\_map.py.
+.3 shortest\_path\_interactive\_map.py.
+.3 ....
+.2 Tests \DTcomment{Scripts de pruebas}.
+.3 Import \DTcomment{Pruebas de importación}.
+.3 active\_services.py.
+.3 conftest.py \DTcomment{Utilidades para las pruebas}.
+.3 daily\_status.py.
+.3 departure\_times.py.
+.3 ....
+.2 Volumes \DTcomment{Datos de Postgres y Neo4J, incluyendo plugins}.
+.2 LICENSE \DTcomment{Licencia del código (GPLv3)}.
+.2 requirements.txt \DTcomment{Lista de dependencias para \texttt{pip}}.
+}
+
+\clearpage
+
+\section{Modificaciones}
+
+\subsection{Actualizaciones en el esquema}
+
+El esquema de ambas bases de datos se define en el código de importación, presente en \verb|Scripts/PostgreSQL/Import| y \verb|Scripts/Neo4J/Import| respectivamente. Cada uno de los archivos del estándar GTFS cuenta con su propio script, nombrado de la misma forma, pero con la extensión correspondiente. Por ejemplo, para \verb|agency.txt|, tenemos los scripts \verb|agency.sql| y \verb|agency.cypher|.
+
+Si únicamente queremos introducir cambios relativos a entidades que ya existen en las bases de datos, es suficiente con modificar los scripts mencionados, pero si la intención es añadir soporte para archivos adicionales, debemos:
+
+\begin{enumerate}
+    \item Crear nuestro propio script y nombrarlo siguiendo la convención previa.
+    \item Escribir el código siguiendo la estructura los demás scripts de importación.
+    \item Modificar el fichero \verb|Scripts/import.py|, incluyendo el nombre del nuevo script en la variable \code{file\_list}. Cabe mencionar que el orden de ejecución de los scripts es el mismo que el de la lista, por lo que debemos tener en cuenta si hay dependencias respecto a otras entidades.
+    \item \textit{(Opcional, pero recomendado)} Siguiendo la metodología de pruebas, escribir tests de validación cruzada, que aseguren que los datos importados en ambos sistemas son equivalentes,
+    en \verb|Tests/Import/<nombre_script>.py|.
+\end{enumerate}
+
+\subsection{Adición de consultas}
+
+Las consultas predefinidas se encuentran en \verb|queries.sql| y \verb|queries.cypher| bajo los directorios \verb|Scripts/PostgreSQL| y \verb|Scripts/Neo4J| respectivamente. Si queremos implementar nuevas consultas, los pasos para ello son:
+
+\begin{enumerate}
+    \item Escribir el código SQL y Cypher de la consulta en cada uno de los archivos.
+    \item En el fichero \verb|Scripts/database.py|, añadir el nombre de la consulta y sus parámetros al diccionario \code{QUERY\_PARAMETERS}, siguiendo el formato del resto de consultas. Este paso permite lanzar la query desde un script en Python.
+    \item \textit{(Opcional, pero recomendado)} Siguiendo la metodología de pruebas, escribir tests de validación cruzada, análisis de casos límite y comprobación de invariantes (propiedades) en el fichero \verb|Tests/<nombre_query>.py|.
+\end{enumerate}
+
+\section{Ejecución de pruebas}
+
+Una vez modificado el código, resulta deseable ejecutar pruebas que verifiquen que nuestro cambio no ha tenido efectos inesperados en el resto del sistema. Para ello, podemos utilizar \verb|pytest| (ya instalado como parte de las dependencias del proyecto), y lanzar todos los tests desde el directorio raíz del proyecto:
+
+\begin{verbatim}
+$ pytest -v Tests/*.py Tests/Import/*.py
+\end{verbatim}
+
+Es importante mencionar que, dado que las pruebas utilizan validación cruzada entre ambos sistemas gestores de bases de datos, debemos asegurarnos de \textbf{haber lanzado ambos, e importado el mismo dataset}.
+
+Para más información acerca de la metodología de pruebas seguida, se puede consultar el capítulo \ref{chapter:tests}.
+
+\section{Errores frecuentes}
+
+\subsection{Las pruebas producen errores de conexión}
+
+Al tratar de ejecutar un script mediante \verb|pytest|, podemos encontrar un mensaje de error similar al siguiente:
+
+\begin{verbatim}
+psycopg.OperationalError: connection failed: connection to server
+at "127.0.0.1", port 5432 failed: Connection refused
+\end{verbatim}
+
+En ese caso, debemos asegurarnos de que los contenedores Docker de PostgreSQL y Neo4J se están ejecutando:
+
+\begin{verbatim}
+$ Scripts/PostgreSQL/launch.sh
+$ Scripts/Neo4J/launch.sh
+\end{verbatim}
+
+También conviene asegurarse de que ningún servicio está tratando de utilizar los mismos puertos, \verb|5432| en el caso de PostgreSQL, y \verb|7474| y \verb|7687| en el de Neo4J.
+
+\subsection{Otros errores}
+
+Dado que durante el uso regular del sistema se llevan a cabo procesos muy similares a los que encontraríamos en el caso del desarrollo, es recomendable consultar el apartado \ref{user:troubleshooting} en el manual de usuario, en que se abordan varios otros errores que podrían aparecer.
