@@ -28,6 +28,18 @@ Using the **GTFS (General Transit Feed Specification)** standard as the data sou
 *   **Visualization:** Integration with **Folium** (Python) for interactive HTML maps and **QGIS** for desktop GIS analysis.
 *   **Automated Testing:** Cross-validation system using `pytest` to ensure result consistency between the two database engines.
 
+## 🖼 Example Outputs
+
+### Travel-Time Reachability Map
+Interactive map showing reachable transit stops within time buckets from a selected origin, computed using GTFS schedules and network traversal.
+
+![Reachability map](examples/belgrade_stop_reachability_interactive_map.png)
+
+### Temporal Service Analysis
+Distribution of trip start times for a weekday, used to validate GTFS schedules and identify peak-demand periods.
+
+![Trip histogram](examples/prague_trip_histogram_monday.png)
+
 ## 🏗 Architecture
 
 The system follows a modular architecture:
