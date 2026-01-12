@@ -110,16 +110,16 @@ Start the Docker containers for the database engines using the provided helper s
 Run the import orchestrator. This creates the schema and loads the data.
 
 ```bash
-# Usage: ./import.sh <Dataset_Folder_Name> <Database_Engine>
-./import.sh Singapore neo4j
-./import.sh Singapore postgres
+# Usage: import.py <Dataset_Folder_Name> <Database_Engine>
+./Scripts/import.py Singapore neo4j
+./Scripts/import.py Singapore postgres
 ```
 
 ### 3. Execution & Visualization
 You can run specific analysis scripts to generate maps:
 
 ```bash
-python Scripts/shortest_path_interactive_map.py --origin-stop-id "123" --destination-stop-id "456" --output map.html
+./Scripts/shortest_path_interactive_map.py --origin-stop-id "123" --destination-stop-id "456" --output map.html
 ```
 
 Or connect via **QGIS** to the PostgreSQL instance (`localhost:5432`) to launch custom queries and visualize geometric results.
